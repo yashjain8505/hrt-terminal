@@ -48,22 +48,20 @@
 
   // globe
   const gel = document.getElementById("globe");
-  const g = Globe()(gel).backgroundColor("rgba(0,0,0,0)")
-    .showGlobe(true).showAtmosphere(true).atmosphereColor("#5fa8ff").atmosphereAltitude(0.2)
-    .hexPolygonsData(window.HRT_COUNTRIES.features).hexPolygonResolution(3).hexPolygonMargin(0.42).hexPolygonUseDots(true).hexPolygonColor(() => "rgba(110, 156, 214, 0.78)").hexPolygonAltitude(0.004)
+  const g = Globe()(gel).backgroundColor("rgba(0,0,0,0)").globeImageUrl("earth-night.jpg").backgroundImageUrl("night-sky.png")
+    .showAtmosphere(true).atmosphereColor("#ffa028").atmosphereAltitude(0.17)
     .pointLat("lat").pointLng("lng").pointsMerge(false).pointColor((d) => d.color).pointAltitude((d) => d.alt).pointRadius((d) => d.rad)
     .pointLabel((d) => `<div class="gtip"><b>${esc(d.co.name)}</b>${d.sit ? esc(d.sit.headline) : "No active situation"}${d.sit && d.sit.openedAt ? `<span>${ago(d.sit.openedAt)} · ${esc(d.co.sector || "")}</span>` : `<span>${esc(d.co.sector || "")}</span>`}</div>`)
     .onPointClick((d) => openCo(d.co))
     .arcStartLat("startLat").arcStartLng("startLng").arcEndLat("endLat").arcEndLng("endLng").arcColor(() => ["rgba(240,176,74,.55)", "rgba(95,168,255,.15)"]).arcStroke(0.2).arcDashLength(0.35).arcDashGap(1).arcDashAnimateTime(2800).arcAltitudeAutoScale(0.32)
     .arcLabel((d) => `<div class="gtip"><b>${esc(d.name)}</b>hiring in ${d.country}: ${d.count} open roles</div>`)
     .ringLat("lat").ringLng("lng").ringColor((d) => (t) => d.color + Math.round((1 - t) * 220).toString(16).padStart(2, "0")).ringMaxRadius(3).ringPropagationSpeed(1.4).ringRepeatPeriod(1000)
-    .labelLat("lat").labelLng("lng").labelText((d) => d.co.name.toUpperCase()).labelSize(0.42).labelDotRadius(0.001).labelColor(() => "rgba(236,240,246,.9)").labelResolution(2).labelAltitude(0.07);
-  { const m = g.globeMaterial(); m.color.set("#0a1326"); m.emissive.set("#0a1326"); m.emissiveIntensity = 0.55; m.shininess = 4; }
+    .labelLat("lat").labelLng("lng").labelText((d) => d.co.name.toUpperCase()).labelSize(0.42).labelDotRadius(0.001).labelColor(() => "rgba(228,230,234,.8)").labelResolution(2).labelAltitude(0.07);
   const resize = () => g.width(gel.clientWidth).height(gel.clientHeight); new ResizeObserver(resize).observe(gel); resize();
   setTimeout(() => { const c = g.controls(); c.autoRotate = true; c.autoRotateSpeed = 0.3; g.pointOfView({ lat: 36, lng: -96, altitude: 1.7 }, 0); }, 150);
   function paintGlobe() {
     const lit = new Map(); for (const x of visible()) if (!lit.has(x.co.id)) lit.set(x.co.id, x.s);
-    const pts = D.companies.filter((c) => c.lat != null).map((co) => { const sit = lit.get(co.id) || null; return { co, lat: co.lat, lng: co.lng, sit, color: sit ? COLOR[sit.key] : "#8fa3bd", alt: sit ? 0.03 : 0.012, rad: sit ? 0.26 : 0.08 }; });
+    const pts = D.companies.filter((c) => c.lat != null).map((co) => { const sit = lit.get(co.id) || null; return { co, lat: co.lat, lng: co.lng, sit, color: sit ? COLOR[sit.key] : "#4a5566", alt: sit ? 0.022 : 0.004, rad: sit ? 0.22 : 0.07 }; });
     g.pointsData(pts);
     const litPts = pts.filter((p) => p.sit);
     g.labelsData(litPts.sort((a, b) => (b.sit.openedAt > a.sit.openedAt ? 1 : -1)).slice(0, 30));
