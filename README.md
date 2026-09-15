@@ -50,6 +50,8 @@ The knowledge behind them lives in `src/lib/playbook.ts` (buyer titles per profi
 | SEC `company_tickers.json` + `data.sec.gov/submissions` | CIK match, 8-K filings in the last 365 days with item codes (5.02 officer change, 2.05 restructuring, 2.01 acquisition) | `04-sec` |
 | California EDD WARN workbook | layoff notices matched to Fortune 500 names | `05-warn` |
 
+`08-situations` turns signals into **situations** (`src/lib/situations.ts`): what the company is doing in HR terms, proven by dated facts, with a window and buyer titles. `09-diff` compares the latest two snapshots (job_history keeps every snapshot's HR postings) and emits role filled / role opened / velocity / new country events. `12-news` reads Google News RSS (no key) for HR-leader appointments and departures, layoffs and acquisitions, attributing each headline to the hiring company by its syntax.
+
 `07-geo` adds HQ coordinates (exact from the headquarters dataset, else city table, else state centroid) for the globe.
 
 `06-signals` turns all of it into typed signals with a 1–5 strength and a dedupe key. `src/lib/profiles.ts` holds the 12 offer profiles and their per-signal weights; `src/lib/whynow.ts` holds the why-now templates; `src/lib/outreach.ts` drafts the message.
@@ -62,6 +64,16 @@ npm run p:snapshot        # just re-pull job boards
 ```
 
 Steps accept `LIMIT=30` (first N companies), `ONLY=<slug>` (one company) and `CONC=<n>` (parallelism).
+
+## People movement (the "who just moved" signal)
+
+Free sources only, corroborated:
+- **Appointment in the news**: Google News RSS sweeps for "names / appoints / joins as" plus CHRO, Chief People Officer, VP People, Head of Talent, Head of Total Rewards; per-company queries for the same. The headline's syntax decides who is hiring ("Kroger taps McDonald's veteran…" = arrival at Kroger, departure from McDonald's).
+- **Role filled**: an HR-leader posting that was on the board last snapshot and is gone this snapshot (only where we read the board in full).
+- **Role opened**: new HR postings since the last snapshot.
+Shown on the account story as "People movement · last 60 days" and used by the "New HR leader" situation ("just got a new leader: <name>").
+
+LinkedIn profile changes are not read. That data is only available inside LinkedIn or from paid resellers; the two free signals above approximate it at leadership level.
 
 ## What v0 does not do yet
 

@@ -9,7 +9,7 @@
   const daysAgo = (d) => Math.round((new Date(ASOF) - new Date(d)) / 864e5);
   const ago = (d) => { const n = daysAgo(d); return n <= 0 ? "today" : n === 1 ? "yesterday" : n + "d ago"; };
   const vname = (k) => (k ? (L.VENDOR_BY_KEY[k] ? L.VENDOR_BY_KEY[k].name : k) : null);
-  const COLOR = { new_leader: "#3fd47e", systems_project: "#5fa8ff", recruiting_build: "#f0b04a", consolidation: "#c08cff", cost_cutting: "#ff6b66" };
+  const COLOR = { new_leader: "#3fd47e", systems_project: "#5fa8ff", recruiting_build: "#f0b04a", consolidation: "#c08cff", cost_cutting: "#ff6b66", expansion: "#3cc9c9", funded: "#e2c14a", hr_forming: "#9ad36a", threshold: "#b9a2ff", hourly_surge: "#ff9c6b" };
   const store = { get: (k, d) => { try { const v = localStorage.getItem("hrtroom_" + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set: (k, v) => { try { localStorage.setItem("hrtroom_" + k, JSON.stringify(v)); } catch {} } };
   const S = { profile: store.get("profile", "ats"), sit: "all", account: null, view: "list", playing: true, idx: 0 };
   const P = () => L.PROFILE_BY_KEY[S.profile] || L.PROFILES[0];
@@ -128,6 +128,7 @@
           <div>${st.angle ? `<h3>Against ${esc(vname(co.ats_vendor || co.hris_vendor))}</h3><p class="angle">${esc(st.angle)}</p>` : ""}
             ${mine.length > 1 ? `<h3>Also at ${esc(co.name)}</h3><ul class="also">${mine.filter((x) => x !== main).map((x) => `<li data-k="${x.s.key}"><i class="dot" style="background:${COLOR[x.s.key]}"></i>${esc(x.s.headline.replace(co.name + " ", ""))}</li>`).join("")}</ul>` : ""}</div>
         </div>
+        ${(() => { const mv = (sigsByCo.get(co.id) || []).filter((x) => (x.type === "hiring.role_filled" || x.type === "exec.hr_appointment" || x.type === "hiring.role_opened") && daysAgo(x.observed_at.slice(0, 10)) <= 60).sort((a, b) => (b.observed_at > a.observed_at ? 1 : -1)); if (!mv.length) return ""; const filled = mv.filter((x) => x.type === "hiring.role_filled").length, appt = mv.filter((x) => x.type === "exec.hr_appointment").length, opened = mv.filter((x) => x.type === "hiring.role_opened").length; return `<h3>People movement · last 60 days</h3><p class="means">${[appt ? appt + " HR leadership appointment" + (appt > 1 ? "s" : "") + " in the news" : "", filled ? filled + " HR posting" + (filled > 1 ? "s" : "") + " filled or closed" : "", opened ? opened + " new HR posting" + (opened > 1 ? "s" : "") : ""].filter(Boolean).join(" · ")}</p><ul class="facts">${mv.slice(0, 6).map((x) => `<li><span class="fd">${x.observed_at.slice(0, 10)}</span><span>${esc(x.title)}${x.source_url ? ` <a href="${esc(x.source_url)}" target="_blank">proof</a>` : ""}</span></li>`).join("")}</ul>`; })()}
         <h3>First line <button class="btn s" id="copyline">Copy</button></h3><p class="first">${esc(st.firstLine)}</p>
       </div>`;
     document.getElementById("back").addEventListener("click", () => { S.view = "list"; renderRight(); });

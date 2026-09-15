@@ -31,19 +31,20 @@ const HR_DOMAIN = /\b(people|human resources|human capital|\bhr\b|talent acquisi
 const EXEC = /\b(chief|chro|svp|evp|vp|vice president|head of|global head|president of)\b/i;
 const NOT_EXEC = /\b(assistant vice president|avp|associate vice president|assistant to|office of the|executive assistant|chief product|chief procurement|chief privacy|cpo - (product|procurement))\b/i;
 const NOT_HR = /\b(sales|engineering|software|product|security|finance|accounting|marketing|supply chain|authentication|optimization|analytics engineer|customer|business risk|resiliency|underwriting|claims|actuar)\b/i;
-const DIRECTOR = /\b(director|sr\.? director|senior director|group lead|leader)\b/i;
+const DIRECTOR = /\b(director|sr\.? director|senior director|head of)\b/i;
+const FRONTLINE = /\b(team leader|team lead|assistant manager|store|district|shift|market|branch|plant|site|warehouse|fulfil?lment|distribution center|dc\b|intern|internship|stagiaire|trainee|apprentice|co-?op|graduate|student)\b/i;
 
 const RULES: { bucket: Bucket; test: (t: string) => boolean }[] = [
   {
     bucket: "people_exec",
     test: (t) =>
-      !NOT_EXEC.test(t) && !NOT_HR.test(t) &&
+      !NOT_EXEC.test(t) && !NOT_HR.test(t) && !FRONTLINE.test(t) &&
       (/\b(chief (people|human resources|human resource|talent|hr|diversity|learning) officer|\bchro\b|chief people|chief human)/i.test(t) ||
         (EXEC.test(t) && HR_DOMAIN.test(t))),
   },
   {
     bucket: "hr_leader",
-    test: (t) => (DIRECTOR.test(t) || (NOT_EXEC.test(t) && /\b(vice president|avp)\b/i.test(t))) && HR_DOMAIN.test(t) && !NOT_HR.test(t),
+    test: (t) => !FRONTLINE.test(t) && (DIRECTOR.test(t) || (NOT_EXEC.test(t) && /\b(vice president|avp)\b/i.test(t))) && HR_DOMAIN.test(t) && !NOT_HR.test(t),
   },
   {
     bucket: "hris",
@@ -52,7 +53,8 @@ const RULES: { bucket: Bucket; test: (t: string) => boolean }[] = [
   {
     bucket: "recruiting",
     test: (t) =>
-      /\b(recruit(er|ing|ment)|talent acquisition|talent partner|sourcer|sourcing (specialist|partner|lead|manager)|staffing (specialist|coordinator|partner|manager)|campus (recruit|program manager)|university (recruit|relations)|early careers? (recruit|program manager|programs? lead|talent)|talent scout|\bta (partner|specialist|coordinator|manager|lead)\b|technical recruiter|executive search)\b/i.test(t) && !/\b(program|programme) [–-]/i.test(t),
+      !/\b(strategic sourcing|procurement|purchasing|supply|supplier|mro|materials?|commodit|category|merchandis|vendor management|global sourcing|indirect|direct sourcing)\b/i.test(t) &&
+      /\b(recruit(er|ing|ment)|talent acquisition|talent partner|sourcer|talent sourc\w+|sourcing (specialist|partner|lead|manager|recruiter)(?=.*\b(talent|recruit|candidate|people|hr)\b)|staffing (specialist|coordinator|partner|manager)|campus (recruit|program manager)|university (recruit|relations)|early careers? (recruit|program manager|programs? lead|talent)|talent scout|\bta (partner|specialist|coordinator|manager|lead)\b|technical recruiter|executive search)\b/i.test(t) && !/\b(program|programme) [–-]/i.test(t),
   },
   { bucket: "payroll", test: (t) => /\bpayroll\b/i.test(t) },
   {

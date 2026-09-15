@@ -5,7 +5,8 @@
  */
 import type { Profile, Family } from "./profiles";
 import { buyerTitles, incumbentAngle, parsePostedText } from "./playbook";
-import { execDomain } from "./classify";
+import { execDomain, stateName } from "./classify";
+import { COUNTRY_NAMES } from "./geo";
 
 export type SituationKey = "new_leader" | "systems_project" | "recruiting_build" | "consolidation" | "cost_cutting" | "expansion" | "funded" | "hr_forming" | "threshold" | "hourly_surge";
 
@@ -37,7 +38,7 @@ export const SITUATIONS: SituationMeta[] = [
   { key: "cost_cutting", name: "Cutting costs after layoffs or restructuring", short: "Cost cutting", windowDays: 60, priority: 2, active: true,
     buyers: ["CHRO", "VP HR Operations", "Head of Employee Relations"],
     means: { ta: "Not a growth pitch. Lead with cost per hire, vendor consolidation and doing more with fewer recruiters.", corehr: "Lead with consolidation and cost: fewer vendors, fewer manual processes, offboarding done cleanly.", programs: "Retention and engagement of the people who stay. Pitch the survivor problem.", global: "Consolidating providers across countries is the cost story." } },
-  { key: "expansion", name: "Expanding to new countries, states or cities", short: "Expansion", windowDays: 90, priority: 2, active: false, needs: "second snapshot (location diff)",
+  { key: "expansion", name: "Expanding to new countries, states or cities", short: "Expansion", windowDays: 90, priority: 2, active: true,
     buyers: ["VP People Operations", "Head of Global Payroll", "General Counsel (employment)"],
     means: { ta: "New locations mean new hiring channels and local recruiting.", corehr: "New states and countries mean new payroll, tax and compliance.", programs: "New sites need onboarding and manager enablement.", global: "First hires in a new country are the whole EOR and global payroll conversation." } },
   { key: "funded", name: "Just funded, IPO or fast growth", short: "Funded / growth", windowDays: 120, priority: 2, active: false, needs: "Form D / S-1 / news feeds",
@@ -114,16 +115,36 @@ export function detectSituations(co: CompanyIn, jobs: JobIn[], signals: SignalIn
 
   const isMA = (t: string) => /\b(m&a|mergers?|integration)\b/i.test(t) && !/talent acquisition/i.test(t) && /\b(hr|people|payroll|hris|human resources)\b/i.test(t) || /\bacquisitions?\b/i.test(t) && !/talent acquisition/i.test(t) && /\b(hr|people|payroll|hris|human resources)\b/i.test(t);
   const maTitles = new Set(jd.filter((x) => x.j.bucket && isMA(x.j.title)).map((x) => x.j.title));
-  // 1. New HR leader: exec / director-level HR roles posted (M&A roles belong to consolidation)
+  // 0. New HR leader CONFIRMED: appointment in the news, or an exec posting that came off the board
   {
     const meta = SITUATION_BY_KEY.new_leader;
+    const appts = signals.filter((s) => s.type === "exec.hr_appointment" && inWindow(s.observed_at.slice(0, 10), 90));
+    const filledExec = signals.filter((s) => s.type === "hiring.role_filled" && inWindow(s.observed_at.slice(0, 10), 90)).filter((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return p.bucket === "people_exec"; });
+    if (appts.length || filledExec.length) {
+      const facts: Fact[] = [
+        ...appts.map((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return { date: s.observed_at.slice(0, 10), text: `${p.person ? p.person + " " : ""}${p.role ? "named " + String(p.role).replace(/^\w/, (c) => c.toUpperCase()) : "HR leadership appointment"} · ${s.title}`, url: s.source_url, kind: "filing" as const }; }),
+        ...filledExec.map((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return { date: s.observed_at.slice(0, 10), text: `"${p.title}" posting came off the board (hired or withdrawn)`, url: s.source_url, kind: "role" as const }; }),
+      ].slice(0, 4);
+      const lead = appts[0] ? (appts[0].payload_json ? JSON.parse(appts[0].payload_json) : {}) : null;
+      const dom = lead && lead.role ? (DOMAIN_WORD[execDomain(String(lead.role))] || "HR") : filledExec[0] ? (DOMAIN_WORD[execDomain(String(JSON.parse(filledExec[0].payload_json || "{}").title || ""))] || "HR") : "HR";
+      const headline = lead ? `${co.name} just got a new ${dom} leader${lead.person ? ": " + lead.person : ""}` : `${co.name} appears to have just hired a ${dom} leader`;
+      const openedAt = newest(facts);
+      out.push({ key: "new_leader", headline, openedAt, windowEnds: openedAt ? addDays(openedAt, 90) : null, confidence: appts.some((a) => (a.payload_json ? JSON.parse(a.payload_json).confidence : "") === "high") || facts.length >= 2 ? "high" : "medium", facts, buyers: meta.buyers });
+    }
+  }
+  // 1. New HR leader ARRIVING: VP+ / Head of / Chief roles posted (dated). Directors only count when two are dated.
+  if (!out.some((s) => s.key === "new_leader")) {
+    const meta = SITUATION_BY_KEY.new_leader;
     const roles = jd.filter((x) => (x.j.bucket === "people_exec" || x.j.bucket === "hr_leader") && !maTitles.has(x.j.title)).filter((x) => x.d.date ? inWindow(x.d.date, meta.windowDays) : true);
-    const execs = roles.filter((x) => x.j.bucket === "people_exec");
-    if (execs.length || roles.length >= 2) {
-      const lead = (execs[0] || roles[0]).j;
-      const facts = roles.sort((a, b) => (b.d.date || "") < (a.d.date || "") ? -1 : 1).slice(0, 4).map((x) => roleFact(x.j, x.d));
+    const datedExec = roles.filter((x) => x.j.bucket === "people_exec" && x.d.date).sort((a, b) => (b.d.date! < a.d.date! ? -1 : 1));
+    const datedDir = roles.filter((x) => x.j.bucket === "hr_leader" && x.d.date).sort((a, b) => (b.d.date! < a.d.date! ? -1 : 1));
+    const undated = roles.filter((x) => !x.d.date);
+    if (datedExec.length || datedDir.length >= 2) {
+      const lead = (datedExec[0] || datedDir[0]).j;
+      const ordered = [...datedExec, ...datedDir, ...undated].slice(0, 4);
+      const facts = ordered.map((x) => roleFact(x.j, x.d));
       const dom = DOMAIN_WORD[execDomain(lead.title)] || "HR";
-      const headline = execs.length ? `${co.name} is about to get a new ${dom} leader` : `${co.name} is adding ${dom} leadership`;
+      const headline = datedExec.length ? `${co.name} is about to get a new ${dom} leader` : `${co.name} is adding ${dom} leadership`;
       const openedAt = newest(facts);
       out.push({ key: "new_leader", headline, openedAt, windowEnds: openedAt ? addDays(openedAt, meta.windowDays) : null, confidence: conf(facts, asOf, meta.windowDays), facts, buyers: meta.buyers });
     }
@@ -133,11 +154,11 @@ export function detectSituations(co: CompanyIn, jobs: JobIn[], signals: SignalIn
     const meta = SITUATION_BY_KEY.systems_project;
     const sysRoles = jd.filter((x) => x.j.bucket === "hris" || (x.j.bucket === "payroll" && SYSTEMS.some(([, re]) => re.test(x.j.title))) || /\b(implementation|migration|go-live|rollout|roll-out|integration)\b/i.test(x.j.title) && /\b(hr|hris|hcm|payroll|people|workday|successfactors)\b/i.test(x.j.title));
     const recent = sysRoles.filter((x) => x.d.date ? inWindow(x.d.date, meta.windowDays) : true);
-    if (recent.length) {
+    if (recent.some((x) => x.d.date)) {
       const named: Record<string, number> = {};
-      for (const x of recent) for (const [k, re] of SYSTEMS) if (re.test(x.j.title)) named[k] = (named[k] || 0) + 1;
+      for (const x of recent.filter((x) => x.d.date)) for (const [k, re] of SYSTEMS) if (re.test(x.j.title)) named[k] = (named[k] || 0) + 1;
       const system = Object.entries(named).sort((a, b) => b[1] - a[1]).map(([k]) => k).find((k) => !co.name.toLowerCase().includes(SYSTEM_NAME[k].toLowerCase())) || null;
-      const payrollNamed = recent.filter((x) => x.j.bucket === "payroll" && system && SYSTEMS.find(([k]) => k === system)![1].test(x.j.title)).length;
+      const payrollNamed = recent.filter((x) => x.d.date && x.j.bucket === "payroll" && system && SYSTEMS.find(([k]) => k === system)![1].test(x.j.title)).length;
       const facts = recent.sort((a, b) => (b.d.date || "") < (a.d.date || "") ? -1 : 1).slice(0, 4).map((x) => roleFact(x.j, x.d));
       const tools = snap?.tools || {};
       const legacy = Object.entries(tools).filter(([k, n]) => n > 0 && k !== system && k !== "servicenow_hr" && k !== "linkedin_recruiter" && k !== "indeed").sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -152,7 +173,8 @@ export function detectSituations(co: CompanyIn, jobs: JobIn[], signals: SignalIn
     const meta = SITUATION_BY_KEY.recruiting_build;
     const rec = jd.filter((x) => x.j.bucket === "recruiting").filter((x) => x.d.date ? inWindow(x.d.date, meta.windowDays) : true);
     const ops = rec.filter((x) => /\b(operations|ops|technology|systems|analytics|enablement|programs?)\b/i.test(x.j.title));
-    if (rec.length >= 2 || ops.length) {
+    const dated = rec.filter((x) => x.d.date);
+    if (dated.length >= 2 || (ops.some((x) => x.d.date) && rec.length >= 2)) {
       const facts = rec.sort((a, b) => (b.d.date || "") < (a.d.date || "") ? -1 : 1).slice(0, 4).map((x) => roleFact(x.j, x.d));
       if (rec.length > 4) facts.push({ date: null, text: `${rec.length} recruiting roles open in total`, url: null, kind: "role" });
       const headline = ops.length ? `${co.name} is building recruiting operations` : `${co.name} is building its recruiting team`;
@@ -163,10 +185,11 @@ export function detectSituations(co: CompanyIn, jobs: JobIn[], signals: SignalIn
   // 4. Consolidation after acquisition
   {
     const meta = SITUATION_BY_KEY.consolidation;
-    const acq = signals.filter((s) => s.type === "corp.acquisition" && inWindow(s.observed_at.slice(0, 10), meta.windowDays));
+    const done = (t: string) => /\b(acquires|acquired|completes|completed|closes|closed|buys|bought|finalizes|wraps up)\b/i.test(t) && !/\b(to acquire|considers|considering|proposed|in talks|plans to|agrees to|seeks|explores|exploring|could|may|might|reportedly)\b/i.test(t);
+    const acq = signals.filter((s) => (s.type === "corp.acquisition" || (s.type === "news.acquisition" && done(s.title))) && inWindow(s.observed_at.slice(0, 10), meta.windowDays));
     const maRoles = jd.filter((x) => maTitles.has(x.j.title));
     if (acq.length || maRoles.length) {
-      const facts: Fact[] = [...acq.map((s) => ({ date: s.observed_at.slice(0, 10), text: "Completed an acquisition or disposition (8-K item 2.01)", url: s.source_url, kind: "filing" as const })), ...maRoles.map((x) => roleFact(x.j, x.d))].slice(0, 4);
+      const facts: Fact[] = [...acq.map((s) => ({ date: s.observed_at.slice(0, 10), text: s.type === "corp.acquisition" ? "Completed an acquisition or disposition (8-K item 2.01)" : `In the news: ${s.title}`, url: s.source_url, kind: "filing" as const })), ...maRoles.map((x) => roleFact(x.j, x.d))].slice(0, 4);
       const openedAt = newest(facts);
       out.push({ key: "consolidation", headline: `${co.name} is consolidating after an acquisition`, openedAt, windowEnds: openedAt ? addDays(openedAt, meta.windowDays) : null, confidence: conf(facts, asOf, meta.windowDays), facts, buyers: meta.buyers });
     }
@@ -174,13 +197,25 @@ export function detectSituations(co: CompanyIn, jobs: JobIn[], signals: SignalIn
   // 5. Cost cutting after layoffs / restructuring
   {
     const meta = SITUATION_BY_KEY.cost_cutting;
-    const risk = signals.filter((s) => s.type.startsWith("risk.") && inWindow(s.observed_at.slice(0, 10), meta.windowDays + 30));
+    const risk = signals.filter((s) => (s.type.startsWith("risk.") || s.type === "news.layoffs") && inWindow(s.observed_at.slice(0, 10), meta.windowDays + 30)).filter((s) => { if (s.type !== "risk.warn_notice") return true; const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return Number(p.employees || 0) >= 50; });
     if (risk.length) {
-      const facts: Fact[] = risk.map((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return { date: s.observed_at.slice(0, 10), text: s.type === "risk.warn_notice" ? `Filed a layoff notice in ${p.state} covering ${p.employees} people` : "Disclosed restructuring and exit costs (8-K item 2.05)", url: s.source_url, kind: s.type === "risk.warn_notice" ? "warn" as const : "filing" as const }; }).slice(0, 4);
+      const facts: Fact[] = risk.map((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return { date: s.observed_at.slice(0, 10), text: s.type === "risk.warn_notice" ? `Filed a layoff notice in ${p.state} covering ${p.employees} people` : s.type === "news.layoffs" ? `In the news: ${s.title}` : "Disclosed restructuring and exit costs (8-K item 2.05)", url: s.source_url, kind: s.type === "risk.warn_notice" ? "warn" as const : "filing" as const }; }).slice(0, 4);
       const hrOps = jd.filter((x) => x.j.bucket === "hr_generalist" && /\b(employee relations|offboarding|shared services|operations)\b/i.test(x.j.title)).slice(0, 2);
       for (const x of hrOps) facts.push(roleFact(x.j, x.d));
       const openedAt = newest(facts);
       out.push({ key: "cost_cutting", headline: `${co.name} is cutting costs after ${risk.some((s) => s.type === "risk.warn_notice") ? "layoffs" : "a restructuring"}`, openedAt, windowEnds: openedAt ? addDays(openedAt, meta.windowDays) : null, confidence: conf(facts, asOf, meta.windowDays), facts, buyers: meta.buyers });
+    }
+  }
+  // 6. Expansion: first postings in a new country or state (from snapshot diffs)
+  {
+    const meta = SITUATION_BY_KEY.expansion;
+    const locs = signals.filter((s) => s.type === "hiring.new_location" && inWindow(s.observed_at.slice(0, 10), meta.windowDays));
+    if (locs.length) {
+      const facts: Fact[] = locs.map((s) => ({ date: s.observed_at.slice(0, 10), text: s.title, url: s.source_url, kind: "role" as const }));
+      const p = locs[0].payload_json ? JSON.parse(locs[0].payload_json) : {};
+      const where = [...(p.countries || []).map((c: string) => COUNTRY_NAMES[c] || c), ...(p.states || []).map((c: string) => stateName(c))].slice(0, 3).join(", ");
+      const openedAt = newest(facts);
+      out.push({ key: "expansion", headline: `${co.name} started hiring in ${where}`, openedAt, windowEnds: openedAt ? addDays(openedAt, meta.windowDays) : null, confidence: (p.countries || []).length ? "high" : "medium", facts, buyers: meta.buyers });
     }
   }
   // Order: priority, then confidence, then recency

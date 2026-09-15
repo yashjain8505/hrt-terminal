@@ -10,6 +10,7 @@ const CONC = Number(process.env.CONC || 6);
 async function main() {
   const started = nowIso();
   const d = db();
+  d.exec(`CREATE TABLE IF NOT EXISTS job_history (id INTEGER PRIMARY KEY, as_of TEXT NOT NULL, company_id INTEGER NOT NULL, external_id TEXT, title TEXT NOT NULL, location TEXT, url TEXT, bucket TEXT, search_term TEXT, posted_text TEXT, posted_at TEXT, UNIQUE(as_of, company_id, external_id, title)); CREATE INDEX IF NOT EXISTS idx_jh ON job_history(company_id, as_of);`);
   let rows = d.prepare("SELECT id,name,slug,ats_config FROM companies WHERE detect_status='pullable' ORDER BY rank").all() as { id: number; name: string; slug: string; ats_config: string }[];
   if (ONLY) rows = rows.filter((r) => r.slug.includes(ONLY));
   if (LIMIT) rows = rows.slice(0, LIMIT);
@@ -25,6 +26,9 @@ async function main() {
     for (const p of snap.postings) if (p.bucket) counts[p.bucket] = (counts[p.bucket] || 0) + 1;
     const { parseLocation } = await import("../src/lib/classify");
     const tx = d.transaction(() => {
+      const prevAsOf = (d.prepare("SELECT max(taken_at) t FROM snapshots WHERE company_id=?").get(c.id) as { t: string | null }).t;
+      if (prevAsOf) d.prepare(`INSERT OR IGNORE INTO job_history (as_of, company_id, external_id, title, location, url, bucket, search_term, posted_text, posted_at)
+        SELECT ?, company_id, external_id, title, location, url, bucket, search_term, posted_text, posted_at FROM job_posts WHERE company_id=? AND bucket IS NOT NULL`).run(prevAsOf.slice(0, 10), c.id);
       d.prepare("DELETE FROM job_posts WHERE company_id=?").run(c.id);
       for (const p of snap.postings) {
         const loc = parseLocation(p.location);
