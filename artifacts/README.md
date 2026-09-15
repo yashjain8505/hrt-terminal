@@ -16,5 +16,6 @@ npx esbuild src/lib/browser.ts --bundle --format=iife --minify --outfile=artifac
 | `stream.html` | Trigger stream: weekly stacked area + wire | https://claude.ai/code/artifact/1469375c-2007-4018-b829-9624691a5af7 |
 
 | `desk.html` | **Sales Desk (plain direction)**: Today / Lists / Settings + account brief, white paper, Archivo + Source Sans 3 | https://claude.ai/code/artifact/821efd0c-b686-4332-8dde-6d58267a26c3 |
+| `desk2.html` | **Desk (the midpoint)**: feed + account brief + book on one screen, graphite, Hanken Grotesk + Plex Mono for numbers, keyboard-driven | https://claude.ai/code/artifact/79cf8278-3e09-448a-976e-e325733ac499 |
 
 Shared files: `data.js` (exported snapshot), `hrt-lib.js` (scoring, why-now, battlecard, playbook), `hrt-ui.js` (chrome, profile switcher, helpers), `earth-night.jpg` (globe texture).

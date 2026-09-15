@@ -1,0 +1,283 @@
+<meta charset="utf-8">
+<title>HRT Desk</title>
+<style>
+  :root{--ground:#14161a;--panel:#1a1d22;--panel2:#1f2329;--line:#2a2f36;--line2:#3a4048;--ink:#e4e6ea;--ink2:#b3b8c0;--muted:#7f8791;--faint:#5c636c;--accent:#5b9dff;--accent-bg:#1b2a41;--pos:#3fb950;--neg:#f25f5c;--warn:#d9a441;--sel:#222a35;
+    --ui:"Hanken Grotesk","Helvetica Neue",Arial,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}html,body{height:100%}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--ui);font-size:13px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow:hidden}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+  button{font:inherit;cursor:pointer;color:inherit;background:none;border:0;padding:0}
+  .m{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px}
+  /* header */
+  .hd{height:46px;display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:18px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .wm{font-weight:700;letter-spacing:.06em;font-size:14px}.wm span{color:var(--muted);font-weight:500;letter-spacing:0;margin-left:10px}
+  .cmd{position:relative;max-width:640px}
+  .cmd input{width:100%;height:30px;background:var(--ground);border:1px solid var(--line2);border-radius:4px;color:var(--ink);font:inherit;padding:0 36px 0 30px}
+  .cmd input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+  .cmd .ic{position:absolute;left:9px;top:8px;width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2}
+  .cmd .k{position:absolute;right:8px;top:6px}
+  .kk{display:inline-block;font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--line2);border-radius:3px;padding:0 5px;line-height:16px;background:var(--panel2)}
+  .hits{position:absolute;left:0;right:0;top:34px;background:var(--panel);border:1px solid var(--line2);border-radius:4px;box-shadow:0 12px 32px rgba(0,0,0,.5);z-index:50;display:none;max-height:360px;overflow:auto}
+  .hits.show{display:block}.hit{display:flex;justify-content:space-between;gap:12px;padding:7px 12px;cursor:pointer}.hit.on,.hit:hover{background:var(--sel)}.hit span{color:var(--muted)}
+  .chip{display:flex;align-items:center;gap:6px;color:var(--ink2)}.chip label{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+  .chip select{background:var(--ground);color:var(--ink);border:1px solid var(--line2);border-radius:4px;font:inherit;padding:4px 6px}
+  /* shell */
+  .shell{display:grid;grid-template-columns:318px 1fr 268px;height:calc(100vh - 46px - 28px)}
+  .col{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}.col:last-child{border-right:0}
+  .ct{display:flex;align-items:center;gap:10px;height:34px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--panel);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);font-weight:600}
+  .ct .r{margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted)}
+  .tabs{display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .tab{padding:3px 9px;border-radius:3px;color:var(--muted);font-size:12px}.tab.on{background:var(--panel2);color:var(--ink)}.tab:hover{color:var(--ink)}
+  .scroll{overflow:auto;min-height:0;flex:1}
+  /* feed */
+  .gh{position:sticky;top:0;background:var(--ground);padding:8px 12px 4px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;z-index:1}
+  .fr{display:grid;grid-template-columns:44px 1fr 34px;gap:8px;padding:7px 12px;border-bottom:1px solid #22262c;cursor:pointer;align-items:start}
+  .fr:hover{background:var(--panel2)}.fr.on{background:var(--sel);box-shadow:inset 2px 0 0 var(--accent)}
+  .fr .t{color:var(--muted);padding-top:2px}.fr .co{font-weight:600;color:var(--ink)}.fr .co i{font-style:normal;color:var(--muted);font-weight:400;margin-left:6px;font-size:12px}
+  .fr .why{color:var(--ink2);font-size:12.5px}.fr .sc{color:var(--ink2);text-align:right;padding-top:2px}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .d-HIRING{background:var(--pos)}.d-FILINGS{background:var(--accent)}.d-RISK{background:var(--neg)}.d-STACK{background:var(--muted)}.d-LIST{background:var(--warn)}
+  /* account */
+  .ah{padding:14px 18px 10px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:flex-start}
+  .ah h1{margin:0;font-size:21px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+  .ah .meta{color:var(--muted);margin-top:3px}
+  .ah .acts{margin-left:auto;display:flex;gap:6px}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;white-space:nowrap;border:1px solid var(--line2);border-radius:4px;background:var(--panel2);color:var(--ink);font-size:12.5px}
+  .btn:hover{border-color:var(--accent)}.btn.p{background:var(--accent);border-color:var(--accent);color:#0b1524;font-weight:600}.btn.p:hover{filter:brightness(1.08)}
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid var(--line);background:var(--panel)}
+  .stats div{padding:8px 18px;border-right:1px solid var(--line)}.stats div:last-child{border-right:0}
+  .stats small{display:block;color:var(--muted);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
+  .stats b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.stats b.m{font-size:14px}
+  .body{display:grid;grid-template-columns:1.3fr 1fr;gap:0;min-height:0}
+  .sec{padding:12px 18px;border-bottom:1px solid var(--line)}.body>div:first-child{border-right:1px solid var(--line)}
+  .sec h3{margin:0 0 8px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;justify-content:space-between}
+  .sec h3 span{letter-spacing:0;text-transform:none;font-weight:400}
+  .ev{display:grid;grid-template-columns:78px 1fr;gap:10px;padding:5px 0;border-bottom:1px solid #22262c;align-items:baseline}
+  .ev:last-child{border-bottom:0}.ev .d{color:var(--muted)}.ev .x{color:var(--ink)}.ev .x a{margin-left:6px;font-size:12px}
+  .care{margin:12px 18px 0;border:1px solid #5a2a2a;background:#2a1b1c;color:#f3b9b7;padding:8px 10px;border-radius:4px}
+  .care b{color:var(--neg)}
+  .mail{background:var(--ground);border:1px solid var(--line2);border-radius:4px;padding:10px 12px;white-space:pre-wrap;font-size:12.5px;line-height:1.5;color:var(--ink2)}
+  .mail b{color:var(--ink);display:block;margin-bottom:6px}
+  .angle{color:var(--ink2);font-size:12.5px;margin-top:6px;padding-left:10px;border-left:2px solid var(--line2)}
+  .who a{display:inline-block;margin:0 10px 4px 0}
+  ol.q{margin:0;padding-left:18px;color:var(--ink2)}ol.q li{padding:2px 0}
+  /* book */
+  .br{display:grid;grid-template-columns:28px 1fr 36px;gap:8px;padding:6px 12px;border-bottom:1px solid #22262c;cursor:pointer;align-items:center}
+  .br:hover{background:var(--panel2)}.br.on{background:var(--sel);box-shadow:inset 2px 0 0 var(--accent)}
+  .br .rk{color:var(--faint)}.br .nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.br .nm small{display:block;color:var(--muted);font-weight:400;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.br .sc{text-align:right;color:var(--ink2)}
+  .mini{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+  .mini div{padding:8px 12px;border-right:1px solid var(--line)}.mini div:nth-child(2n){border-right:0}.mini div:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .mini small{display:block;color:var(--muted);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}.mini b{font-size:15px;font-weight:600}
+  /* footer */
+  .ft{height:28px;display:flex;align-items:center;gap:14px;padding:0 16px;border-top:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:11.5px}
+  .ft .kk{margin-right:2px}.ft .r{margin-left:auto}
+  /* lists view */
+  table{width:100%;border-collapse:collapse}th{position:sticky;top:0;background:var(--panel);text-align:left;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:7px 12px;border-bottom:1px solid #22262c;vertical-align:top;font-size:12.5px}td.n,th.n{text-align:right}tr:hover td{background:var(--panel2)}tr{cursor:pointer}
+  .filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .filters label{display:grid;gap:3px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .filters select,.filters input{background:var(--ground);color:var(--ink);border:1px solid var(--line2);border-radius:4px;font:inherit;font-size:12.5px;padding:5px 7px;min-width:140px;text-transform:none;letter-spacing:0}
+  textarea.csv{width:calc(100% - 36px);margin:10px 18px;height:120px;background:var(--ground);color:var(--ink2);border:1px solid var(--line2);border-radius:4px;font:11.5px var(--mono);padding:8px;display:none}textarea.csv.show{display:block}
+  .opt{display:grid;grid-template-columns:20px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid #22262c;cursor:pointer}.opt b{display:block}.opt span{color:var(--muted);font-size:12px}
+  .checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:2px 14px;font-size:12.5px}.checks label{display:flex;gap:7px;align-items:center;padding:2px 0}
+  .toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:var(--ink);color:#0b0d10;padding:7px 12px;border-radius:4px;font-size:12.5px;display:none;z-index:60}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  @media (max-width:1100px){.shell{grid-template-columns:320px 1fr}.col.book{display:none}.stats{grid-template-columns:repeat(3,1fr)}.body{grid-template-columns:1fr}.body>div:first-child{border-right:0}}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="hrt-lib.js"></script>
+<script src="data.js"></script>
+<header class="hd">
+  <div class="wm">HRT<span>Fortune 500 · HR buying signals</span></div>
+  <div class="cmd"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="Company name, or a command: today · lists · settings" autocomplete="off"><span class="k kk">/</span><div class="hits" id="hits"></div></div>
+  <div class="chip"><label>You sell</label><select id="prof"></select></div>
+  <div class="chip"><label>Book</label><button class="btn" id="terr">All 498</button></div>
+  <div class="chip m" id="clock"></div>
+</header>
+<div class="shell">
+  <section class="col feed"><div class="ct">Reasons to reach out<span class="r" id="feed-n"></span></div><div class="tabs" id="ftabs"></div><div class="scroll" id="feed"></div></section>
+  <section class="col main" id="main"></section>
+  <section class="col book"><div class="mini" id="mini"></div><div class="ct">Your book<span class="r" id="book-n"></span></div><div class="scroll" id="book"></div></section>
+</div>
+<footer class="ft"><span><span class="kk">/</span> search</span><span><span class="kk">j</span><span class="kk">k</span> move</span><span><span class="kk">↵</span> open</span><span><span class="kk">c</span> copy first line</span><span><span class="kk">e</span> copy email</span><span><span class="kk">l</span> lists</span><span><span class="kk">t</span> today</span><span class="r" id="status"></span></footer>
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+  const L = window.HRTLIB, D = window.HRT;
+  const byId = new Map(D.companies.map((c) => [c.id, c]));
+  const sigsByCo = new Map(); for (const s of D.signals) { if (!sigsByCo.has(s.company_id)) sigsByCo.set(s.company_id, []); sigsByCo.get(s.company_id).push(s); }
+  const jobsByCo = new Map(); for (const j of D.jobs) { if (!jobsByCo.has(j.company_id)) jobsByCo.set(j.company_id, []); jobsByCo.get(j.company_id).push(j); }
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const num = (n) => (n == null ? "–" : Number(n).toLocaleString());
+  const money = (m) => (m == null ? "–" : Math.abs(m) >= 1000 ? "$" + (m / 1000).toFixed(1) + "B" : "$" + Math.round(m) + "M");
+  const vname = (k) => (k ? (L.VENDOR_BY_KEY[k] ? L.VENDOR_BY_KEY[k].name : k) : null);
+  const GROUP = (t) => L.SIGNAL_GROUP[t] || "STACK";
+  const TODAY = D.meta.generated;
+  const daysAgo = (d) => Math.round((new Date(TODAY) - new Date(d)) / 864e5);
+  const ago = (d) => { const n = daysAgo(d); return n <= 0 ? "today" : n === 1 ? "1d" : n < 30 ? n + "d" : n < 365 ? Math.round(n / 30) + "mo" : "1y+"; };
+  const store = { get: (k, d) => { try { const v = localStorage.getItem("hrtdesk2_" + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set: (k, v) => { try { localStorage.setItem("hrtdesk2_" + k, JSON.stringify(v)); } catch {} } };
+  const S = { view: "account", profile: store.get("profile", "ats"), sectors: store.get("sectors", []), states: store.get("states", []), account: null, ftab: "all", cursor: 0, lf: { vendor: "", sector: "", state: "", minRoles: "", type: "" } };
+  const P = () => L.PROFILE_BY_KEY[S.profile] || L.PROFILES[0];
+  const inBook = (c) => (!S.sectors.length || S.sectors.includes(c.sector)) && (!S.states.length || S.states.includes(c.hq_state));
+
+  function reason(s) {
+    const p = s.payload_json ? JSON.parse(s.payload_json) : {}; const n = p.count, first = (p.titles || [])[0];
+    switch (s.type) {
+      case "hiring.people_exec_open": case "hiring.hr_leader_open": return `Opened a ${p.title} role`;
+      case "hiring.recruiting_open": return `${n} recruiting role${n === 1 ? "" : "s"} open${first ? " · " + first : ""}`;
+      case "hiring.hr_generalist_open": return `${n} HR role${n === 1 ? "" : "s"} open${first ? " · " + first : ""}`;
+      case "hiring.hris_open": return `Hiring for HR-systems work${first ? " · " + first : ""}`;
+      case "hiring.payroll_open": return `${n} payroll role${n === 1 ? "" : "s"} open`;
+      case "hiring.comp_benefits_open": return `${n} comp / benefits role${n === 1 ? "" : "s"} open`;
+      case "hiring.learning_open": return `${n} L&D role${n === 1 ? "" : "s"} open`;
+      case "hiring.engagement_open": return `${n} culture / engagement role${n === 1 ? "" : "s"} open`;
+      case "hiring.wfm_open": return `${n} workforce-management role${n === 1 ? "" : "s"} open`;
+      case "hiring.volume": return `${Number(p.open_roles).toLocaleString()} open roles on the careers site`;
+      case "hiring.intl_footprint": return `Hiring in ${p.countries} countries`;
+      case "hiring.contingent_share": return `${p.pct}% of postings are contract, intern or seasonal`;
+      case "stack.ats_detected": return `Recruits on ${p.vendor}`;
+      case "stack.hris_detected": return `Runs ${p.vendor} as the HR system`;
+      case "stack.tool_detected": return `Careers site uses ${p.vendor}`;
+      case "stack.tool_mentioned": return `Job posts mention ${(p.tools || []).slice(0, 2).join(", ")}`;
+      case "exec.officer_change": return `Officer change reported to the SEC (8-K)`;
+      case "corp.acquisition": return `Closed an acquisition (8-K)`;
+      case "risk.restructuring": return `Disclosed restructuring costs (8-K)`;
+      case "risk.warn_notice": return `Layoff notice in ${p.state}, ${p.employees} people`;
+      case "fortune.newcomer": return `New to the Fortune 500`;
+      case "fortune.jobs_growth": return `Grew headcount last year`;
+      case "fortune.rank_gain": return `Up ${p.change} places on the Fortune 500`;
+      default: return s.title;
+    }
+  }
+  const scored = (co) => { const p = P(); return (sigsByCo.get(co.id) || []).map((s) => ({ ...s, score: L.scoreSignal(p, s.type, s.strength, s.payload_json), group: GROUP(s.type) })).filter((s) => s.score > 0).sort((a, b) => b.score - a.score || (b.observed_at > a.observed_at ? 1 : -1)); };
+  const jobDate = (co, title) => { const j = (jobsByCo.get(co.id) || []).find((x) => x.title === title); return j && j.date && !j.approx ? j.date : null; };
+  function sigDate(co, s) { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; if (/^(exec|corp|risk)\./.test(s.type)) return s.observed_at.slice(0, 10); if (p.title) return jobDate(co, p.title); if (p.titles) { let d = null; for (const t of p.titles) { const x = jobDate(co, t); if (x && (!d || x > d)) d = x; } return d; } return null; }
+  function lead(co) { const sigs = scored(co); if (!sigs.length) return null; const s = sigs[0]; const date = sigDate(co, s); return { s, sigs, total: Math.round(sigs.reduce((a, x) => a + x.score, 0) * 10) / 10, date, text: reason(s) }; }
+  const bucket = (l) => { const f = l.date ? daysAgo(l.date) : 999; return f <= 7 && l.s.score >= 2.5 ? "today" : f <= 30 || l.total >= 22 ? "week" : "standing"; };
+  const card = (co) => { const sn = D.snapshots[co.id] || {}; return L.buildBattlecard({ company: co, signals: scored(co), counts: sn.counts || {}, states: sn.states || {}, countries: sn.countries || {}, tools: sn.tools || {} }, P()); };
+  const subject = (s, co) => { if (!s) return "Quick note re " + co; switch (s.type) { case "hiring.people_exec_open": return co + "'s next people leader"; case "hiring.hr_leader_open": return "New HR leadership at " + co; case "hiring.recruiting_open": return co + "'s recruiting team is growing"; case "hiring.hris_open": return "HR systems work at " + co; case "hiring.payroll_open": return "Payroll hiring at " + co; case "exec.officer_change": return "Leadership change at " + co; case "corp.acquisition": return "Post-acquisition HR at " + co; case "risk.restructuring": case "risk.warn_notice": return "Supporting " + co + " through the changes"; default: return "Quick question about " + co + "'s HR stack"; } };
+  const email = (co, c, sigs, changed) => "Subject: " + subject(sigs[0], co.name) + "\n\n" + c.opening + (changed[0] && changed[0].source_url ? "\n\nEvidence: " + changed[0].source_url : "") + `\n\nWe help ${P().buyer.toLowerCase()}s with ${P().sells}. Worth 15 minutes?`;
+  const toast = (t) => { const el = document.getElementById("toast"); el.textContent = t; el.style.display = "block"; setTimeout(() => (el.style.display = "none"), 1300); };
+  const copy = (t, m) => navigator.clipboard.writeText(t).then(() => toast(m || "Copied"));
+
+  // chrome
+  const prof = document.getElementById("prof");
+  prof.innerHTML = L.PROFILES.map((x) => `<option value="${x.key}" ${x.key === S.profile ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+  prof.addEventListener("change", () => { S.profile = prof.value; store.set("profile", prof.value); renderAll(); });
+  document.getElementById("terr").addEventListener("click", () => { S.view = "settings"; renderMain(); });
+  const clock = document.getElementById("clock"); const tick = () => { const d = new Date(); clock.textContent = TODAY + "  " + d.toTimeString().slice(0, 5); }; tick(); setInterval(tick, 30000);
+  const q = document.getElementById("q"), hits = document.getElementById("hits"); let hi = 0, hitList = [];
+  const CMDS = [["today", "Reasons to reach out today"], ["lists", "Build a list for your sequencer"], ["settings", "What you sell, your book"]];
+  q.addEventListener("input", () => { const v = q.value.trim().toLowerCase(); if (!v) { hits.classList.remove("show"); return; } const cmds = CMDS.filter((c) => c[0].startsWith(v)).map((c) => ({ cmd: c[0], name: c[0], sub: c[1] })); const cos = D.companies.filter((c) => c.name.toLowerCase().includes(v) || (c.domain || "").includes(v) || (c.ticker || "").toLowerCase() === v).sort((a, b) => (a.name.toLowerCase().startsWith(v) ? 0 : 1) - (b.name.toLowerCase().startsWith(v) ? 0 : 1) || a.rank - b.rank).slice(0, 8).map((c) => ({ co: c, name: c.name, sub: "#" + c.rank + " · " + (c.sector || "") })); hitList = [...cmds, ...cos]; hi = 0; hits.innerHTML = hitList.map((h, i) => `<div class="hit ${i === hi ? "on" : ""}" data-i="${i}">${h.cmd ? "› " : ""}${esc(h.name)}<span>${esc(h.sub)}</span></div>`).join("") || `<div class="hit"><span>Nothing matches.</span></div>`; hits.classList.add("show"); });
+  q.addEventListener("keydown", (e) => { if (e.key === "ArrowDown") hi = Math.min(hi + 1, hitList.length - 1); else if (e.key === "ArrowUp") hi = Math.max(hi - 1, 0); else if (e.key === "Enter") { const h = hitList[hi]; if (h) go(h); return; } else if (e.key === "Escape") { q.blur(); hits.classList.remove("show"); return; } else return; e.preventDefault(); [...hits.children].forEach((x, i) => x.classList.toggle("on", i === hi)); });
+  hits.addEventListener("mousedown", (e) => { const h = e.target.closest("[data-i]"); if (h) { e.preventDefault(); go(hitList[Number(h.dataset.i)]); } });
+  q.addEventListener("blur", () => setTimeout(() => hits.classList.remove("show"), 120));
+  function go(h) { q.value = ""; hits.classList.remove("show"); q.blur(); if (h.cmd) { S.view = h.cmd === "today" ? "account" : h.cmd; if (h.cmd === "today") S.account = feedRows[0] ? feedRows[0].co : S.account; renderMain(); } else openCo(h.co); }
+  function openCo(co) { S.account = co; S.view = "account"; renderMain(); markSel(); }
+  function markSel() { document.querySelectorAll(".fr,.br").forEach((r) => r.classList.toggle("on", !!S.account && r.dataset.slug === S.account.slug)); const on = document.querySelector(".fr.on"); if (on) on.scrollIntoView({ block: "nearest" }); }
+
+  // feed
+  let feedRows = [];
+  const FT = [["all", "All"], ["HIRING", "Roles"], ["FILINGS", "Filings"], ["RISK", "Layoffs"], ["STACK", "Systems"]];
+  function renderFeed() {
+    const book = D.companies.filter(inBook);
+    const rows = book.map((co) => ({ co, l: lead(co) })).filter((x) => x.l && (S.ftab === "all" || x.l.s.group === S.ftab)).map((x) => ({ ...x, b: bucket(x.l) }));
+    const g = { today: [], week: [], standing: [] }; for (const x of rows) g[x.b].push(x);
+    g.today.sort((a, b) => b.l.s.score - a.l.s.score || b.l.total - a.l.total); g.week.sort((a, b) => b.l.total - a.l.total); g.standing.sort((a, b) => b.l.total - a.l.total);
+    feedRows = [...g.today, ...g.week.slice(0, 40), ...g.standing.slice(0, 40)];
+    document.getElementById("ftabs").innerHTML = FT.map(([k, l]) => `<button class="tab ${S.ftab === k ? "on" : ""}" data-ft="${k}">${l}</button>`).join("");
+    document.querySelectorAll("[data-ft]").forEach((b) => b.addEventListener("click", () => { S.ftab = b.dataset.ft; renderFeed(); }));
+    const row = (x) => `<div class="fr" data-slug="${x.co.slug}"><span class="t m">${x.l.date ? ago(x.l.date) : "—"}</span><span><span class="co"><span class="dot d-${x.l.s.group}"></span>${esc(x.co.name)}<i>${esc(L.stateCode(x.co.hq_state))}</i></span><div class="why">${esc(x.l.text)}</div></span><span class="sc m">${x.l.s.score.toFixed(1)}</span></div>`;
+    const sec = (t, arr, n) => `<div class="gh"><span>${t}</span><span>${n}</span></div>` + (arr.map(row).join("") || `<div class="fr" style="cursor:default"><span></span><span class="why" style="color:var(--faint)">Nothing here.</span></div>`);
+    document.getElementById("feed").innerHTML = sec("Today", g.today, g.today.length) + sec("This week", g.week.slice(0, 40), g.week.length) + sec("Standing facts", g.standing.slice(0, 40), g.standing.length);
+    document.getElementById("feed-n").textContent = `${g.today.length} today · ${g.week.length} this week`;
+    document.querySelectorAll(".fr[data-slug]").forEach((r) => r.addEventListener("click", () => openCo(D.companies.find((c) => c.slug === r.dataset.slug))));
+    if (!S.account && feedRows[0]) S.account = feedRows[0].co;
+    markSel();
+    document.getElementById("mini").innerHTML = `<div><small>In your book</small><b>${book.length}</b></div><div><small>Reasons today</small><b>${g.today.length}</b></div><div><small>This week</small><b>${g.week.length}</b></div><div><small>Boards live</small><b>${book.filter((c) => c.open_roles != null).length}</b></div>`;
+  }
+  // book
+  function renderBook() {
+    const rows = D.companies.filter(inBook).map((co) => ({ co, t: lead(co) })).filter((x) => x.t).sort((a, b) => b.t.total - a.t.total).slice(0, 80);
+    document.getElementById("book-n").textContent = "top " + rows.length + " · " + P().short;
+    document.getElementById("book").innerHTML = rows.map((x, i) => `<div class="br" data-slug="${x.co.slug}"><span class="rk m">${i + 1}</span><span class="nm">${esc(x.co.name)}<small>${esc(x.t.text)}</small></span><span class="sc m">${x.t.total}</span></div>`).join("");
+    document.querySelectorAll(".br").forEach((r) => r.addEventListener("click", () => openCo(D.companies.find((c) => c.slug === r.dataset.slug))));
+    markSel();
+  }
+  // main
+  function renderMain() { if (S.view === "lists") renderLists(); else if (S.view === "settings") renderSettings(); else renderAccount(); document.getElementById("status").textContent = S.view === "account" && S.account ? `${S.account.name} · ${P().name}` : S.view; }
+  function renderAccount() {
+    const co = S.account, el = document.getElementById("main");
+    if (!co) { el.innerHTML = `<div class="ct">Account</div><div class="sec" style="color:var(--muted)">Pick a row on the left or type a name.</div>`; return; }
+    const c = card(co), sigs = scored(co), sn = D.snapshots[co.id];
+    const withDates = sigs.map((s) => ({ s, d: sigDate(co, s) }));
+    const changed = withDates.filter((x) => x.d).sort((a, b) => (b.d > a.d ? 1 : -1)).slice(0, 8);
+    const standing = withDates.filter((x) => !x.d).slice(0, 6);
+    const tools = sn ? Object.entries(sn.tools || {}).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => (L.JD_TOOLS.find((t) => t.key === k) || { name: k }).name) : [];
+    const angle = c.stack.find((s) => s.angle);
+    const runs = [co.ats_vendor && vname(co.ats_vendor), co.hris_vendor && co.hris_vendor !== co.ats_vendor && vname(co.hris_vendor)].filter(Boolean);
+    const mail = email(co, c, sigs, changed.map((x) => x.s));
+    const hrRoles = (jobsByCo.get(co.id) || []).length;
+    el.innerHTML = `<div class="ah"><div><h1>${esc(co.name)}</h1><div class="meta">Fortune 500 #${co.rank} · ${esc(co.sector || "")} · ${esc(co.industry || "")} · ${esc(co.hq_city || "")}, ${esc(L.stateCode(co.hq_state))}${co.domain ? ` · <a href="https://${esc(co.domain)}" target="_blank">${esc(co.domain)}</a>` : ""}${co.careers_url ? ` · <a href="${esc(co.careers_url)}" target="_blank">careers</a>` : ""}</div></div>
+        <div class="acts"><button class="btn" id="cline">Copy first line <span class="kk">c</span></button><button class="btn p" id="cmail">Copy email <span class="kk" style="border-color:#0b1524;color:#0b1524;background:transparent">e</span></button></div></div>
+      <div class="stats"><div><small>Employees</small><b class="m">${num(co.employees)}</b></div><div><small>Revenue</small><b class="m">${money(co.revenue_m)}</b></div><div><small>Open roles</small><b class="m">${co.open_roles != null ? num(co.open_roles) : "n/a"}</b></div><div><small>HR roles found</small><b class="m">${hrRoles}</b></div><div><small>Runs</small><b>${runs.length ? esc(runs.join(" · ")) : "unknown"}</b></div><div><small>Score · ${esc(P().short)}</small><b class="m">${Math.round(sigs.reduce((a, s) => a + s.score, 0) * 10) / 10}</b></div></div>
+      ${c.risks.length ? `<div class="care"><b>Careful.</b> ${esc(c.risks.map((r) => r.split(" · ")[1] || r).join("; "))}. Lead with cost and consolidation, not growth.</div>` : ""}
+      <div class="body"><div>
+        <div class="sec"><h3>What changed <span>${changed.length} dated in the last 6 months</span></h3>${changed.map((x) => `<div class="ev"><span class="d m">${x.d}</span><span class="x"><span class="dot d-${x.s.group}"></span>${esc(reason(x.s))}${x.s.source_url ? `<a href="${esc(x.s.source_url)}" target="_blank">evidence</a>` : ""}</span></div>`).join("") || `<div style="color:var(--faint)">No dated changes.</div>`}</div>
+        <div class="sec"><h3>Standing facts</h3>${standing.map((x) => `<div class="ev"><span class="d m" style="color:var(--faint)">${x.s.score.toFixed(1)}</span><span class="x"><span class="dot d-${x.s.group}"></span>${esc(reason(x.s))}${x.s.source_url ? `<a href="${esc(x.s.source_url)}" target="_blank">evidence</a>` : ""}</span></div>`).join("") || `<div style="color:var(--faint)">None.</div>`}</div>
+        <div class="sec"><h3>What they run</h3><div>${runs.length ? esc(co.name) + " recruits on " + esc(vname(co.ats_vendor) || vname(co.hris_vendor)) + (co.hris_vendor && co.hris_vendor !== co.ats_vendor ? " and runs " + esc(vname(co.hris_vendor)) + " as the HR system" : "") + "." : "HR systems not visible from the careers site."}${tools.length ? " Job posts mention " + esc(tools.join(", ")) + "." : ""}</div>${angle ? `<div class="angle">${esc(angle.angle)}</div>` : ""}</div>
+      </div><div>
+        <div class="sec"><h3>Who to contact</h3><div class="who">${c.buyers.slice(0, 4).map((b) => `<a href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent('"' + b + '" ' + co.name)}" target="_blank">${esc(b)} ↗</a>`).join("")}</div></div>
+        <div class="sec"><h3>First email <span>edit before sending</span></h3><div class="mail"><b>${esc(mail.split("\n")[0])}</b>${esc(mail.split("\n").slice(2).join("\n"))}</div></div>
+        <div class="sec"><h3>Ask on the call</h3><ol class="q">${c.questions.slice(0, 4).map((x) => `<li>${esc(x)}</li>`).join("")}</ol></div>
+      </div></div>`;
+    document.getElementById("cline").addEventListener("click", () => copy(c.opening, "First line copied"));
+    document.getElementById("cmail").addEventListener("click", () => copy(mail, "Email copied"));
+  }
+  function renderLists() {
+    const el = document.getElementById("main"), f = S.lf;
+    const vendors = Object.values(L.VENDOR_BY_KEY).filter((v) => v.category === "ats" || v.category === "hris").map((v) => v.key);
+    const sectors = [...new Set(D.companies.map((c) => c.sector).filter(Boolean))].sort(), states = [...new Set(D.companies.map((c) => c.hq_state).filter(Boolean))].sort();
+    const TYPES = ["hiring.people_exec_open", "hiring.hr_leader_open", "hiring.recruiting_open", "hiring.hris_open", "hiring.payroll_open", "hiring.comp_benefits_open", "hiring.learning_open", "hiring.intl_footprint", "exec.officer_change", "corp.acquisition", "risk.restructuring", "risk.warn_notice", "fortune.newcomer"];
+    let list = D.companies.filter(inBook);
+    if (f.vendor) list = list.filter((c) => c.ats_vendor === f.vendor || c.hris_vendor === f.vendor);
+    if (f.sector) list = list.filter((c) => c.sector === f.sector);
+    if (f.state) list = list.filter((c) => c.hq_state === f.state);
+    if (Number(f.minRoles)) list = list.filter((c) => (c.open_roles || 0) >= Number(f.minRoles));
+    if (f.type) list = list.filter((c) => (sigsByCo.get(c.id) || []).some((s) => s.type === f.type));
+    const rows = list.map((co) => ({ co, l: lead(co), c: card(co) })).filter((x) => x.l).sort((a, b) => b.l.total - a.l.total);
+    const e = (v) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const csv = ["company,domain,sector,hq_state,employees,runs,open_roles,reason,evidence_url,contact_title_1,contact_title_2,first_line,score"].concat(rows.map((x) => [x.co.name, x.co.domain, x.co.sector, L.stateCode(x.co.hq_state), x.co.employees, vname(x.co.ats_vendor || x.co.hris_vendor), x.co.open_roles, x.l.text, x.l.s.source_url, x.c.buyers[0], x.c.buyers[1], x.c.opening, x.l.total].map(e).join(","))).join("\n");
+    el.innerHTML = `<div class="ct">Lists<span class="r">${rows.length} accounts · every row has the reason, contact title and first line</span></div>
+      <div class="filters"><label>Runs<select data-f="vendor"><option value="">any system</option>${vendors.map((v) => `<option value="${v}" ${f.vendor === v ? "selected" : ""}>${esc(vname(v))}</option>`).join("")}</select></label><label>Sector<select data-f="sector"><option value="">any</option>${sectors.map((s) => `<option ${f.sector === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label><label>HQ state<select data-f="state"><option value="">any</option>${states.map((s) => `<option ${f.state === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label><label>Min open roles<input data-f="minRoles" value="${esc(f.minRoles)}" placeholder="e.g. 500" inputmode="numeric"></label><label>Has reason<select data-f="type"><option value="">any</option>${TYPES.map((t) => `<option value="${t}" ${f.type === t ? "selected" : ""}>${esc(L.SIGNAL_LABEL[t])}</option>`).join("")}</select></label><button class="btn p" id="copycsv">Copy ${rows.length} rows as CSV</button><button class="btn" id="showcsv">Show CSV</button></div>
+      <div class="scroll"><table><thead><tr><th>Company</th><th>Reason</th><th>Contact</th><th>Runs</th><th class="n">Open roles</th><th class="n">Score</th></tr></thead><tbody>${rows.slice(0, 200).map((x) => `<tr data-slug="${x.co.slug}"><td><b>${esc(x.co.name)}</b><div style="color:var(--muted);font-size:11.5px">${esc(x.co.sector || "")} · ${esc(L.stateCode(x.co.hq_state))}</div></td><td>${esc(x.l.text)}</td><td>${esc(x.c.buyers[0])}</td><td>${esc(vname(x.co.ats_vendor || x.co.hris_vendor) || "–")}</td><td class="n m">${x.co.open_roles != null ? num(x.co.open_roles) : "–"}</td><td class="n m">${x.l.total}</td></tr>`).join("")}</tbody></table><textarea class="csv" id="csv" readonly>${esc(csv)}</textarea></div>`;
+    el.querySelectorAll("[data-f]").forEach((x) => x.addEventListener("change", () => { S.lf[x.dataset.f] = x.value; renderLists(); }));
+    el.querySelectorAll("tr[data-slug]").forEach((r) => r.addEventListener("click", () => openCo(D.companies.find((c) => c.slug === r.dataset.slug))));
+    document.getElementById("copycsv").addEventListener("click", () => copy(csv, rows.length + " rows copied"));
+    document.getElementById("showcsv").addEventListener("click", () => document.getElementById("csv").classList.toggle("show"));
+  }
+  function renderSettings() {
+    const el = document.getElementById("main");
+    const sectors = [...new Set(D.companies.map((c) => c.sector).filter(Boolean))].sort(), states = [...new Set(D.companies.map((c) => c.hq_state).filter(Boolean))].sort();
+    el.innerHTML = `<div class="ct">Settings<span class="r">two things change everything else</span></div><div class="scroll"><div class="sec"><h3>What you sell</h3>${L.PROFILES.map((p) => `<label class="opt"><input type="radio" name="p" value="${p.key}" ${p.key === S.profile ? "checked" : ""}><span><b>${esc(p.name)}</b><span>${esc(p.sells)}. You usually talk to the ${esc(p.buyer)}.</span></span></label>`).join("")}</div>
+      <div class="sec"><h3>Your book <span>leave everything unticked for all 498</span></h3><div style="color:var(--muted);margin:6px 0 4px">Sectors</div><div class="checks">${sectors.map((s) => `<label><input type="checkbox" data-sec value="${esc(s)}" ${S.sectors.includes(s) ? "checked" : ""}>${esc(s)}</label>`).join("")}</div><div style="color:var(--muted);margin:14px 0 4px">HQ states</div><div class="checks">${states.map((s) => `<label><input type="checkbox" data-st value="${esc(s)}" ${S.states.includes(s) ? "checked" : ""}>${esc(s)}</label>`).join("")}</div></div></div>`;
+    el.querySelectorAll("input[name=p]").forEach((r) => r.addEventListener("change", () => { S.profile = r.value; store.set("profile", r.value); prof.value = r.value; renderFeed(); renderBook(); }));
+    const upd = () => { S.sectors = [...el.querySelectorAll("[data-sec]:checked")].map((x) => x.value); S.states = [...el.querySelectorAll("[data-st]:checked")].map((x) => x.value); store.set("sectors", S.sectors); store.set("states", S.states); document.getElementById("terr").textContent = S.sectors.length || S.states.length ? `${S.sectors.length + S.states.length} filters` : "All 498"; renderFeed(); renderBook(); };
+    el.querySelectorAll("[data-sec],[data-st]").forEach((cb) => cb.addEventListener("change", upd));
+  }
+  // keys
+  document.addEventListener("keydown", (e) => {
+    const tag = (e.target.tagName || "").toLowerCase(); if (tag === "input" || tag === "select" || tag === "textarea") return;
+    if (e.key === "/") { e.preventDefault(); q.focus(); return; }
+    if (e.key === "j" || e.key === "k") { const i = feedRows.findIndex((x) => S.account && x.co.id === S.account.id); const n = Math.max(0, Math.min(feedRows.length - 1, (i < 0 ? 0 : i) + (e.key === "j" ? 1 : -1))); if (feedRows[n]) openCo(feedRows[n].co); }
+    if (e.key === "c" && S.account) copy(card(S.account).opening, "First line copied");
+    if (e.key === "e" && S.account) { const co = S.account, c = card(co), sigs = scored(co); copy(email(co, c, sigs, sigs.filter((s) => sigDate(co, s))), "Email copied"); }
+    if (e.key === "l") { S.view = "lists"; renderMain(); }
+    if (e.key === "t") { S.view = "account"; if (feedRows[0]) S.account = feedRows[0].co; renderMain(); markSel(); }
+  });
+  function renderAll() { renderFeed(); renderBook(); renderMain(); }
+  document.getElementById("terr").textContent = S.sectors.length || S.states.length ? `${S.sectors.length + S.states.length} filters` : "All 498";
+  renderAll();
+})();
+</script>
