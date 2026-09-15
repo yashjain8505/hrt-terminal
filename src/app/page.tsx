@@ -30,6 +30,20 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     <div className="flex flex-col min-h-screen pb-[22px]">
       <Header profile={profile} stats={stats} />
       <main className="flex-1 grid grid-cols-12 gap-[6px] p-[6px] min-h-0" style={{ height: "calc(100vh - 62px - 22px)" }}>
+        <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-[6px]">
+          {[
+            { href: "/globe", k: "F6", t: "GLOBE", d: "Situation room: HQs, arcs to hiring countries, live replay" },
+            { href: "/cards", k: "F7", t: "BATTLECARDS", d: "One page per account: triggers, proof, stack angle, who to find, opening line" },
+            { href: "/campaign", k: "F8", t: "CAMPAIGN", d: "Segment → account list → sequence → CSV for your sequencer" },
+            { href: "/matrix", k: "F9", t: "MATRIX", d: "Who runs what, by sector. Click a cell to attack it" },
+            { href: "/timeline", k: "F10", t: "TIMELINE", d: "Dated triggers: what changed this week, what to follow up" },
+          ].map((x) => (
+            <Link key={x.href} href={x.href} className="panel px-3 py-1.5 hover:bg-panel2 hover:outline hover:outline-1 hover:outline-amber">
+              <div className="flex items-center gap-2"><span className="kbd">{x.k}</span><span className="text-amber tracking-widest font-bold text-[11px]">{x.t}</span></div>
+              <div className="text-muted text-[10.5px] leading-tight mt-0.5">{x.d}</div>
+            </Link>
+          ))}
+        </div>
         {/* TAPE */}
         <Panel k="1" title={`Signal tape · ranked for ${profile.name}`} className="col-span-12 lg:col-span-8 h-full" right={<span>{tape.length} rows</span>}>
           <div className="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-line bg-[#070707] sticky top-0 z-[2]">
@@ -138,9 +152,9 @@ function Help() {
     <div className="p-3 border-b border-line bg-[#070707] text-[11.5px] grid md:grid-cols-2 gap-4 fade-in">
       <div>
         <div className="text-amber tracking-widest mb-1">KEYS</div>
-        <div className="grid grid-cols-[60px_1fr] gap-y-[2px]"><span className="kbd w-fit">⌘K</span><span>command line: company, ticker, domain or command</span><span className="kbd w-fit">/</span><span>same</span><span className="kbd w-fit">F1</span><span>this help</span><span className="kbd w-fit">F2</span><span>tape</span><span className="kbd w-fit">F3</span><span>universe (all 500)</span><span className="kbd w-fit">F4</span><span>run report (what the pipeline found)</span><span className="kbd w-fit">F5</span><span>change offer profile</span></div>
+        <div className="grid grid-cols-[60px_1fr] gap-y-[2px]"><span className="kbd w-fit">⌘K</span><span>command line: company, ticker, domain or command</span><span className="kbd w-fit">/</span><span>same</span><span className="kbd w-fit">F1</span><span>this help</span><span className="kbd w-fit">F2</span><span>tape</span><span className="kbd w-fit">F3</span><span>universe (all 500)</span><span className="kbd w-fit">F4</span><span>run report (what the pipeline found)</span><span className="kbd w-fit">F5</span><span>change offer profile</span><span className="kbd w-fit">F6-10</span><span>globe · battlecards · campaign · matrix · timeline</span></div>
         <div className="text-amber tracking-widest mt-3 mb-1">COMMANDS</div>
-        <div className="text-muted">TAPE · UNIV · PROF · RUN · HIRING · STACK · FILINGS · RISK · and any profile: ATS, SOURCE, ASSESS, SCREEN, HRIS, PAYROLL, BENEFIT, COMPLY, PERFORM, COMP, WFM, GLOBAL</div>
+        <div className="text-muted">TAPE · UNIV · PROF · RUN · GLOBE · CARDS · CAMPAIGN · MATRIX · TIMELINE · HIRING · STACK · FILINGS · RISK · and any profile: ATS, SOURCE, ASSESS, SCREEN, HRIS, PAYROLL, BENEFIT, COMPLY, PERFORM, COMP, WFM, GLOBAL</div>
       </div>
       <div>
         <div className="text-amber tracking-widest mb-1">HOW TO READ THE TAPE</div>

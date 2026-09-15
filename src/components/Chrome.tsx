@@ -31,7 +31,7 @@ export function Header({ profile, stats }: { profile: Profile; stats: { companie
 export function FnBar({ active }: { active?: string }) {
   const keys = [
     { k: "F1", l: "HELP", href: "/?help=1" }, { k: "F2", l: "TAPE", href: "/" }, { k: "F3", l: "UNIV", href: "/u" }, { k: "F4", l: "RUN", href: "/run" }, { k: "F5", l: "PROF", href: "/p" },
-    { k: "F6", l: "HIRING", href: "/?g=HIRING" }, { k: "F7", l: "STACK", href: "/?g=STACK" }, { k: "F8", l: "FILINGS", href: "/?g=FILINGS" }, { k: "F9", l: "RISK", href: "/?g=RISK" },
+    { k: "F6", l: "GLOBE", href: "/globe" }, { k: "F7", l: "CARDS", href: "/cards" }, { k: "F8", l: "CAMPAIGN", href: "/campaign" }, { k: "F9", l: "MATRIX", href: "/matrix" }, { k: "F10", l: "TIMELINE", href: "/timeline" },
   ];
   return (
     <div className="flex overflow-x-auto border-t border-line bg-[#040404]">

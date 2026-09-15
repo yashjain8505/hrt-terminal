@@ -6,14 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "pipeline": "npm run p:universe && npm run p:detect && npm run p:snapshot && npm run p:sec && npm run p:warn && npm run p:geo && npm run p:signals",
+    "p:geo": "tsx scripts/07-geo.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-globe.gl": "^2.38.0",
     "server-only": "^0.0.1",
+    "three": "^0.186.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -22,6 +26,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",

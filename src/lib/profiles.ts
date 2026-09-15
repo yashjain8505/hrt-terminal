@@ -64,9 +64,20 @@ export const PROFILES: Profile[] = [
 export const PROFILE_BY_KEY: Record<string, Profile> = Object.fromEntries(PROFILES.map((p) => [p.key, p]));
 export const DEFAULT_PROFILE = "ats";
 
-export function scoreSignal(profile: Profile, type: string, strength: number): number {
+/** Which exec / leader functions each profile cares about (others score at 45%). */
+const DOMAIN_FIT: Record<string, string[]> = {
+  ats: ["ta", "hr", "hris"], sourcing: ["ta", "hr"], assessment: ["ta", "hr"], screening: ["ta", "hr"],
+  hris: ["hris", "hr", "payroll"], payroll: ["payroll", "hr", "hris"], benefits: ["benefits", "comp", "hr"], compliance: ["hr", "payroll"],
+  performance: ["learning", "dei", "hr"], compensation: ["comp", "benefits", "hr"], wfm: ["wfm", "payroll", "hr"], global: ["payroll", "hr", "hris"],
+};
+
+export function scoreSignal(profile: Profile, type: string, strength: number, payloadJson?: string | null): number {
   const wt = profile.weights[type] ?? 0.3;
-  return Math.round(strength * wt * 10) / 10;
+  let mult = 1;
+  if (payloadJson && (type === "hiring.people_exec_open" || type === "hiring.hr_leader_open")) {
+    try { const p = JSON.parse(payloadJson) as { domain?: string }; if (p.domain && !(DOMAIN_FIT[profile.key] || ["hr"]).includes(p.domain)) mult = 0.45; } catch { /* ignore */ }
+  }
+  return Math.round(strength * wt * mult * 10) / 10;
 }
 
 export const SIGNAL_LABEL: Record<string, string> = {

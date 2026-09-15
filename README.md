@@ -13,9 +13,23 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Keys: `⌘K` or `/` opens the command line (type a company, a ticker, or a command such as `TAPE`, `UNIV`, `PROF`, `RUN`, or a profile code like `PAYROLL`). `F1`–`F9` jump between screens.
+Open http://localhost:3000. Keys: `⌘K` or `/` opens the command line (type a company, a ticker, or a command such as `TAPE`, `GLOBE`, `CARDS`, `CAMPAIGN`, `MATRIX`, `TIMELINE`, `PROF`, or a profile code like `PAYROLL`). `F1`–`F10` jump between screens.
 
-## Screens
+## The five sales artifacts
+
+The raw tape is a firehose. These five screens turn it into things a rep can act on. All of them re-rank for the chosen offer profile.
+
+| Key | Screen | Question it answers |
+|---|---|---|
+| F6 | `/globe` **GLOBE** | What is happening across the Fortune 500 right now? HQs on a globe coloured by what is going on, arcs to the countries each company hires in, and a feed replaying 180 days of dated events (exec roles opened, 8-Ks, layoffs). |
+| F7 | `/cards` **BATTLECARDS** | I am about to call this account. What do I say? One printable card per account: top triggers with proof URLs, incumbent stack with the angle against it, buyer titles to search for, an opening line, discovery questions, risk flags. |
+| F8 | `/campaign` **CAMPAIGN** | Who do I put in a sequence this week? Pick a segment (incumbent vendor × sector × state × hiring volume × trigger), get the ranked list with hooks and buyer titles, a 3-touch sequence template, and a CSV export for Outreach / Salesloft / Apollo. |
+| F9 | `/matrix` **MATRIX** | Where is my displacement territory? ATS or HRIS vendor × sector heatmap (accounts, open roles, or profile score). Click a cell to build that campaign. |
+| F10 | `/timeline` **TIMELINE** | What changed this week? Dated triggers in swimlanes over 90/180/365 days, plus "this week: act now" and "last week: follow up" tables. |
+
+The knowledge behind them lives in `src/lib/playbook.ts` (buyer titles per profile, displacement angles per incumbent vendor, discovery questions per trigger) and is meant to be edited.
+
+## Other screens
 
 | Screen | What it is |
 |---|---|
@@ -36,6 +50,8 @@ Open http://localhost:3000. Keys: `⌘K` or `/` opens the command line (type a c
 | SEC `company_tickers.json` + `data.sec.gov/submissions` | CIK match, 8-K filings in the last 365 days with item codes (5.02 officer change, 2.05 restructuring, 2.01 acquisition) | `04-sec` |
 | California EDD WARN workbook | layoff notices matched to Fortune 500 names | `05-warn` |
 
+`07-geo` adds HQ coordinates (exact from the headquarters dataset, else city table, else state centroid) for the globe.
+
 `06-signals` turns all of it into typed signals with a 1–5 strength and a dedupe key. `src/lib/profiles.ts` holds the 12 offer profiles and their per-signal weights; `src/lib/whynow.ts` holds the why-now templates; `src/lib/outreach.ts` drafts the message.
 
 ## Re-run the pipeline
@@ -54,7 +70,8 @@ Steps accept `LIMIT=30` (first N companies), `ONLY=<slug>` (one company) and `CO
 - **Read big custom career sites** (Apple, Microsoft, Google, Walmart). Amazon has an adapter.
 - **Read 8-K text** to tell a CHRO change from any other officer change.
 - **WARN outside California**, Form 5500 (benefits) and H-1B LCA (immigration) feeds, so the BENEFIT and GLOBAL profiles run on partial data.
-- Contact data, CRM sync, sending anything. Out of scope on purpose.
+- Workday only says "Posted 30+ Days Ago" for older roles, so on the timeline those all land on the same day. Dates sharpen on the second run.
+- Contact data, CRM sync, sending anything. Out of scope on purpose. The CSV export is built to be uploaded into the tool that does.
 
 ## Layout
 
@@ -66,4 +83,4 @@ src/components/ terminal chrome (header, function keys, ticker, command palette)
 data/           terminal.db (shipped), raw/ (cached downloads), domain-overrides.json
 ```
 
-Stack: Next.js 16, React 19, Tailwind 4, better-sqlite3. No external services at runtime.
+Stack: Next.js 16, React 19, Tailwind 4, better-sqlite3, react-globe.gl (three.js). No external services at runtime; globe textures are served from `public/globe`.

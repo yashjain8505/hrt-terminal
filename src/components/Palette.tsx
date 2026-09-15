@@ -8,6 +8,11 @@ const COMMANDS: { cmd: string; label: string; href: string }[] = [
   { cmd: "UNIV", label: "Universe: all Fortune 500", href: "/u" },
   { cmd: "PROF", label: "Choose offer profile", href: "/p" },
   { cmd: "RUN", label: "Data run report", href: "/run" },
+  { cmd: "GLOBE", label: "Situation room: globe with live replay", href: "/globe" },
+  { cmd: "CARDS", label: "Battlecards: one page per account", href: "/cards" },
+  { cmd: "CAMPAIGN", label: "Campaign builder: segment → list → CSV", href: "/campaign" },
+  { cmd: "MATRIX", label: "Stack matrix: vendor × sector", href: "/matrix" },
+  { cmd: "TIMELINE", label: "Trigger timeline: what changed when", href: "/timeline" },
   { cmd: "HIRING", label: "Tape: hiring signals", href: "/?g=HIRING" },
   { cmd: "STACK", label: "Tape: stack signals", href: "/?g=STACK" },
   { cmd: "FILINGS", label: "Tape: SEC filings", href: "/?g=FILINGS" },
@@ -38,6 +43,11 @@ export default function Palette({ inline }: { inline?: boolean }) {
         if (e.key === "F3") { e.preventDefault(); router.push("/u"); }
         if (e.key === "F4") { e.preventDefault(); router.push("/run"); }
         if (e.key === "F5") { e.preventDefault(); router.push("/p"); }
+        if (e.key === "F6") { e.preventDefault(); router.push("/globe"); }
+        if (e.key === "F7") { e.preventDefault(); router.push("/cards"); }
+        if (e.key === "F8") { e.preventDefault(); router.push("/campaign"); }
+        if (e.key === "F9") { e.preventDefault(); router.push("/matrix"); }
+        if (e.key === "F10") { e.preventDefault(); router.push("/timeline"); }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -100,7 +110,7 @@ export default function Palette({ inline }: { inline?: boolean }) {
               ))}
             </div>
             <div className="px-3 py-1 border-t border-line text-dim text-[10px] flex gap-4">
-              <span>↑↓ move</span><span>↵ go</span><span>ESC close</span><span>F1 help · F2 tape · F3 universe · F4 run · F5 profile</span>
+              <span>↑↓ move</span><span>↵ go</span><span>ESC close</span><span>F1 help · F2 tape · F3 univ · F5 profile · F6 globe · F7 cards · F8 campaign · F9 matrix · F10 timeline</span>
             </div>
           </div>
         </div>

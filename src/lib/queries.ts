@@ -26,7 +26,7 @@ export function getTape(profile: Profile, opts: { group?: string; type?: string;
   if (opts.minStrength) { where.push("s.strength >= ?"); params.push(opts.minStrength); }
   if (opts.q) { where.push("(c.name LIKE ? OR s.title LIKE ?)"); params.push(`%${opts.q}%`, `%${opts.q}%`); }
   const rows = d.prepare(`SELECT s.*, c.name company_name, c.slug company_slug, c.rank, c.sector, c.hq_state, c.ats_vendor FROM signals s JOIN companies c ON c.id=s.company_id WHERE ${where.join(" AND ")}`).all(...params) as (SignalRow & { company_name: string; company_slug: string; rank: number; sector: string | null; hq_state: string | null; ats_vendor: string | null })[];
-  const scored = rows.map((r) => ({ ...r, score: scoreSignal(profile, r.type, r.strength) })).filter((r) => r.score > 0);
+  const scored = rows.map((r) => ({ ...r, score: scoreSignal(profile, r.type, r.strength, r.payload_json) })).filter((r) => r.score > 0);
   scored.sort((a, b) => b.score - a.score || b.observed_at.localeCompare(a.observed_at) || a.rank - b.rank);
   return scored.slice(0, opts.limit ?? 400);
 }
@@ -49,7 +49,7 @@ export function getCompany(slug: string): CompanyRow | null {
 
 export function getCompanySignals(companyId: number, profile: Profile): (SignalRow & { score: number })[] {
   const rows = db().prepare("SELECT * FROM signals WHERE company_id=? ORDER BY observed_at DESC").all(companyId) as SignalRow[];
-  return rows.map((r) => ({ ...r, score: scoreSignal(profile, r.type, r.strength) })).sort((a, b) => b.score - a.score || b.observed_at.localeCompare(a.observed_at));
+  return rows.map((r) => ({ ...r, score: scoreSignal(profile, r.type, r.strength, r.payload_json) })).sort((a, b) => b.score - a.score || b.observed_at.localeCompare(a.observed_at));
 }
 
 export function getCompanyJobs(companyId: number) {
@@ -73,10 +73,10 @@ export interface UniverseRow extends CompanyRow { signals: number; hr_roles: num
 export function getUniverse(profile: Profile, opts: { sort?: string; dir?: string; q?: string; status?: string; vendor?: string } = {}): UniverseRow[] {
   const d = db();
   const rows = d.prepare(`SELECT c.*, (SELECT count(*) FROM signals s WHERE s.company_id=c.id) signals, (SELECT count(*) FROM job_posts j WHERE j.company_id=c.id AND j.bucket IS NOT NULL) hr_roles FROM companies c ORDER BY c.rank`).all() as (CompanyRow & { signals: number; hr_roles: number })[];
-  const sig = d.prepare("SELECT company_id, type, strength FROM signals").all() as { company_id: number; type: string; strength: number }[];
+  const sig = d.prepare("SELECT company_id, type, strength, payload_json FROM signals").all() as { company_id: number; type: string; strength: number; payload_json: string | null }[];
   const scoreBy: Record<number, { score: number; top: string | null; topScore: number }> = {};
   for (const s of sig) {
-    const sc = scoreSignal(profile, s.type, s.strength);
+    const sc = scoreSignal(profile, s.type, s.strength, s.payload_json);
     const e = (scoreBy[s.company_id] ||= { score: 0, top: null, topScore: 0 });
     e.score += sc; if (sc > e.topScore) { e.topScore = sc; e.top = s.type; }
   }
@@ -129,4 +129,119 @@ export function topMovers(profile: Profile, limit = 12) {
 
 export function tickerItems(profile: Profile, limit = 40) {
   return getTape(profile, { limit, minStrength: 3 });
+}
+
+// ---------------- Globe / timeline / matrix / campaign data ----------------
+import { SIGNAL_GROUP } from "./profiles";
+import { parsePostedText } from "./playbook";
+import { execDomain } from "./classify";
+import { COUNTRY_LATLNG } from "./geo";
+
+export interface GlobePoint { slug: string; name: string; rank: number; lat: number; lng: number; score: number; group: string; ats: string | null; open_roles: number | null; hq: string; top: string; sector: string | null }
+export interface GlobeArc { slug: string; name: string; startLat: number; startLng: number; endLat: number; endLng: number; country: string; count: number }
+export interface GlobeEvent { id: number; slug: string; name: string; lat: number; lng: number; date: string; type: string; group: string; title: string; score: number; strength: number; url: string | null }
+
+export function getGlobeData(profile: Profile) {
+  const d = db();
+  const cos = d.prepare("SELECT id,slug,name,rank,lat,lng,ats_vendor,open_roles,hq_city,hq_state,sector FROM companies WHERE lat IS NOT NULL").all() as { id: number; slug: string; name: string; rank: number; lat: number; lng: number; ats_vendor: string | null; open_roles: number | null; hq_city: string | null; hq_state: string | null; sector: string | null }[];
+  const sigs = d.prepare("SELECT id,company_id,type,strength,observed_at,title,source_url,payload_json FROM signals").all() as { id: number; company_id: number; type: string; strength: number; observed_at: string; title: string; source_url: string | null; payload_json: string | null }[];
+  const agg: Record<number, { score: number; top: string; topScore: number; groupScore: Record<string, number> }> = {};
+  for (const s of sigs) {
+    const sc = scoreSignal(profile, s.type, s.strength, s.payload_json);
+    const a = (agg[s.company_id] ||= { score: 0, top: "", topScore: 0, groupScore: {} });
+    a.score += sc; if (sc > a.topScore) { a.topScore = sc; a.top = s.type; }
+    const g = SIGNAL_GROUP[s.type] || "STACK"; a.groupScore[g] = (a.groupScore[g] || 0) + sc;
+  }
+  const byId = new Map(cos.map((c) => [c.id, c]));
+  const points: GlobePoint[] = cos.map((c) => {
+    const a = agg[c.id];
+    const risk = sigs.some((s) => s.company_id === c.id && s.type.startsWith("risk."));
+    const group = risk ? "RISK" : a ? (Object.entries(a.groupScore).sort((x, y) => y[1] - x[1])[0]?.[0] || "STACK") : "NONE";
+    return { slug: c.slug, name: c.name, rank: c.rank, lat: c.lat, lng: c.lng, score: Math.round((a?.score || 0) * 10) / 10, group, ats: c.ats_vendor, open_roles: c.open_roles, hq: [c.hq_city, c.hq_state].filter(Boolean).join(", "), top: a?.top || "", sector: c.sector };
+  });
+  // arcs: top accounts' international hiring
+  const snaps = d.prepare("SELECT s.company_id, s.countries_json FROM snapshots s WHERE s.id IN (SELECT max(id) FROM snapshots GROUP BY company_id)").all() as { company_id: number; countries_json: string }[];
+  const arcs: GlobeArc[] = [];
+  const idBySlug = new Map(cos.map((c) => [c.slug, c.id]));
+  const topIds = new Set([...points].sort((a, b) => b.score - a.score).slice(0, 120).map((p) => idBySlug.get(p.slug)!));
+  for (const s of snaps) {
+    if (!topIds.has(s.company_id)) continue;
+    const c = byId.get(s.company_id); if (!c) continue;
+    const countries: Record<string, number> = JSON.parse(s.countries_json || "{}");
+    const top = Object.entries(countries).filter(([k]) => k.length === 2 && k !== "US" && COUNTRY_LATLNG[k]).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    for (const [k, n] of top) { const ll = COUNTRY_LATLNG[k]; arcs.push({ slug: c.slug, name: c.name, startLat: c.lat, startLng: c.lng, endLat: ll[0], endLng: ll[1], country: k, count: n }); }
+  }
+  // events: dated signals (filings, WARN) + dated HR postings
+  const events: GlobeEvent[] = [];
+  const cutoff = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
+  for (const s of sigs) {
+    if (s.type.startsWith("hiring.") || s.type.startsWith("stack.") || s.type.startsWith("fortune.")) continue;
+    if (s.observed_at < cutoff) continue;
+    const c = byId.get(s.company_id); if (!c) continue;
+    events.push({ id: s.id, slug: c.slug, name: c.name, lat: c.lat, lng: c.lng, date: s.observed_at.slice(0, 10), type: s.type, group: SIGNAL_GROUP[s.type] || "FILINGS", title: s.title, score: scoreSignal(profile, s.type, s.strength, s.payload_json), strength: s.strength, url: s.source_url });
+  }
+  const jobs = d.prepare("SELECT j.id, j.company_id, j.title, j.url, j.bucket, j.posted_text, j.posted_at FROM job_posts j WHERE j.bucket IN ('people_exec','hr_leader','hris','payroll','recruiting','comp_benefits','learning','wfm','engagement','hr_generalist')").all() as { id: number; company_id: number; title: string; url: string | null; bucket: string; posted_text: string | null; posted_at: string | null }[];
+  const bucketType: Record<string, string> = { people_exec: "hiring.people_exec_open", hr_leader: "hiring.hr_leader_open", hris: "hiring.hris_open", payroll: "hiring.payroll_open", recruiting: "hiring.recruiting_open", comp_benefits: "hiring.comp_benefits_open", learning: "hiring.learning_open", wfm: "hiring.wfm_open", engagement: "hiring.engagement_open", hr_generalist: "hiring.hr_generalist_open" };
+  for (const j of jobs) {
+    const date = j.posted_at && /^\d{4}-\d{2}-\d{2}/.test(j.posted_at) ? j.posted_at.slice(0, 10) : parsePostedText(j.posted_text);
+    if (!date || date < cutoff) continue;
+    const c = byId.get(j.company_id); if (!c) continue;
+    const type = bucketType[j.bucket];
+    const strength = j.bucket === "people_exec" ? 5 : j.bucket === "hr_leader" ? 4 : j.bucket === "hris" ? 3 : 2;
+    events.push({ id: 1000000 + j.id, slug: c.slug, name: c.name, lat: c.lat, lng: c.lng, date, type, group: "HIRING", title: `Role opened: ${j.title}`, score: scoreSignal(profile, type, strength, JSON.stringify({ domain: execDomain(j.title) })), strength, url: j.url });
+  }
+  events.sort((a, b) => a.date.localeCompare(b.date) || b.score - a.score);
+  // keep the feed relevant to the profile and bounded: best-scoring events, capped per day
+  const perDay: Record<string, number> = {};
+  const feed = events.filter((e) => e.score >= 1.5).sort((a, b) => b.score - a.score).filter((e) => { perDay[e.date] = (perDay[e.date] || 0) + 1; return perDay[e.date] <= 12; }).sort((a, b) => a.date.localeCompare(b.date) || b.score - a.score);
+  return { points, arcs, events: feed };
+}
+
+export function getTimeline(profile: Profile) {
+  const { events } = getGlobeData(profile);
+  return events.filter((e) => e.score > 0);
+}
+
+export function getMatrix(profile: Profile, axis: "ats_vendor" | "hris_vendor" = "ats_vendor") {
+  const d = db();
+  const rows = d.prepare(`SELECT c.id, c.slug, c.name, c.sector, c.${axis} vendor, c.open_roles FROM companies c WHERE c.${axis} IS NOT NULL`).all() as { id: number; slug: string; name: string; sector: string | null; vendor: string; open_roles: number | null }[];
+  const sig = d.prepare("SELECT company_id, type, strength, payload_json FROM signals").all() as { company_id: number; type: string; strength: number; payload_json: string | null }[];
+  const score: Record<number, number> = {};
+  for (const s of sig) score[s.company_id] = (score[s.company_id] || 0) + scoreSignal(profile, s.type, s.strength, s.payload_json);
+  const cells: Record<string, Record<string, { n: number; roles: number; score: number; cos: { slug: string; name: string; score: number }[] }>> = {};
+  const vendors: Record<string, number> = {}; const sectors: Record<string, number> = {};
+  for (const r of rows) {
+    const sec = r.sector || "Other";
+    vendors[r.vendor] = (vendors[r.vendor] || 0) + 1; sectors[sec] = (sectors[sec] || 0) + 1;
+    const cell = ((cells[r.vendor] ||= {})[sec] ||= { n: 0, roles: 0, score: 0, cos: [] });
+    cell.n++; cell.roles += r.open_roles || 0; cell.score += score[r.id] || 0; cell.cos.push({ slug: r.slug, name: r.name, score: Math.round((score[r.id] || 0) * 10) / 10 });
+  }
+  for (const v of Object.values(cells)) for (const c of Object.values(v)) c.cos.sort((a, b) => b.score - a.score);
+  return { cells, vendors: Object.entries(vendors).sort((a, b) => b[1] - a[1]).map(([k]) => k), sectors: Object.entries(sectors).sort((a, b) => b[1] - a[1]).map(([k]) => k) };
+}
+
+export interface CampaignRow { id: number; slug: string; name: string; rank: number; domain: string | null; sector: string | null; hq_state: string | null; employees: number | null; ats_vendor: string | null; hris_vendor: string | null; open_roles: number | null; score: number; top: (SignalRow & { score: number })[] }
+
+export function getCampaign(profile: Profile, f: { vendor?: string; sector?: string; minRoles?: number; type?: string; state?: string; limit?: number }): CampaignRow[] {
+  const d = db();
+  const where: string[] = ["1=1"]; const params: unknown[] = [];
+  if (f.vendor) { where.push("(c.ats_vendor=? OR c.hris_vendor=?)"); params.push(f.vendor, f.vendor); }
+  if (f.sector) { where.push("c.sector=?"); params.push(f.sector); }
+  if (f.state) { where.push("c.hq_state=?"); params.push(f.state); }
+  if (f.minRoles) { where.push("c.open_roles>=?"); params.push(f.minRoles); }
+  if (f.type) { where.push("EXISTS (SELECT 1 FROM signals s WHERE s.company_id=c.id AND s.type=?)"); params.push(f.type); }
+  const cos = d.prepare(`SELECT c.id,c.slug,c.name,c.rank,c.domain,c.sector,c.hq_state,c.employees,c.ats_vendor,c.hris_vendor,c.open_roles FROM companies c WHERE ${where.join(" AND ")}`).all(...params) as Omit<CampaignRow, "score" | "top">[];
+  const out: CampaignRow[] = cos.map((c) => {
+    const sigs = getCompanySignals(c.id, profile);
+    return { ...c, score: Math.round(sigs.reduce((a, s) => a + s.score, 0) * 10) / 10, top: sigs.slice(0, 3) };
+  });
+  out.sort((a, b) => b.score - a.score || a.rank - b.rank);
+  return out.slice(0, f.limit ?? 200);
+}
+
+export function getSectors(): string[] {
+  return (db().prepare("SELECT sector, count(*) n FROM companies GROUP BY sector ORDER BY n DESC").all() as { sector: string }[]).map((r) => r.sector).filter(Boolean);
+}
+export function getStates(): string[] {
+  return (db().prepare("SELECT hq_state, count(*) n FROM companies GROUP BY hq_state ORDER BY n DESC").all() as { hq_state: string }[]).map((r) => r.hq_state).filter(Boolean);
 }

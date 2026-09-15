@@ -5,7 +5,7 @@
 import { db, logRun } from "../src/lib/db";
 import { nowIso } from "../src/lib/http";
 import { VENDOR_BY_KEY, JD_TOOLS } from "../src/lib/vendors";
-import type { Bucket } from "../src/lib/classify";
+import { execDomain, type Bucket } from "../src/lib/classify";
 
 const today = new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -62,9 +62,9 @@ function main() {
         for (const [b, list] of Object.entries(byBucket)) {
           const type = bucketType[b as Bucket]; if (!type) continue;
           if (b === "people_exec") {
-            for (const j of list.slice(0, 3)) emit({ company_id: c.id, type, strength: 5, observed_at: today, source: snap.ats_vendor, source_url: j.url, title: `Hiring: ${j.title}`, summary: `${c.name} has an open ${j.title} role${j.location ? " (" + j.location + ")" : ""}.`, payload: { title: j.title, location: j.location, url: j.url }, key: j.title.toLowerCase().slice(0, 60) });
+            for (const j of list.slice(0, 3)) emit({ company_id: c.id, type, strength: 5, observed_at: today, source: snap.ats_vendor, source_url: j.url, title: `Hiring: ${j.title}`, summary: `${c.name} has an open ${j.title} role${j.location ? " (" + j.location + ")" : ""}.`, payload: { title: j.title, location: j.location, url: j.url, domain: execDomain(j.title) }, key: j.title.toLowerCase().slice(0, 60) });
           } else if (b === "hr_leader") {
-            for (const j of list.slice(0, 3)) emit({ company_id: c.id, type, strength: 4, observed_at: today, source: snap.ats_vendor, source_url: j.url, title: `Hiring: ${j.title}`, summary: `${c.name} is hiring a ${j.title}${j.location ? " in " + j.location : ""}.`, payload: { title: j.title, location: j.location, url: j.url }, key: j.title.toLowerCase().slice(0, 60) });
+            for (const j of list.slice(0, 3)) emit({ company_id: c.id, type, strength: 4, observed_at: today, source: snap.ats_vendor, source_url: j.url, title: `Hiring: ${j.title}`, summary: `${c.name} is hiring a ${j.title}${j.location ? " in " + j.location : ""}.`, payload: { title: j.title, location: j.location, url: j.url, domain: execDomain(j.title) }, key: j.title.toLowerCase().slice(0, 60) });
           } else {
             const st = b === "hris" ? countStrength(list.length, 1, 2, 4) + 1 : countStrength(list.length);
             emit({ company_id: c.id, type, strength: st, observed_at: today, source: snap.ats_vendor, source_url: list[0].url, title: `${list.length} open ${b.replace(/_/g, " ")} role${list.length === 1 ? "" : "s"}`, summary: `${c.name} has ${list.length} open ${b.replace(/_/g, " ")} role${list.length === 1 ? "" : "s"}: ${list.slice(0, 3).map((j) => j.title).join("; ")}.`, payload: { count: list.length, titles: list.slice(0, 5).map((j) => j.title), urls: list.slice(0, 5).map((j) => j.url) }, key: "open" });

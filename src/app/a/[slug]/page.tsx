@@ -60,6 +60,7 @@ export default async function Account({ params }: PageProps<"/a/[slug]">) {
             <Cell label="Open roles" value={co.open_roles != null ? fmtNum(co.open_roles) : "–"} sub={snap ? "snapshot " + snap.taken_at.slice(0, 10) : "board not pulled"} />
             <Cell label={`Score · ${profile.short}`} value={total.toFixed(1)} sub={`${signals.length} signals`} valClass="text-amber glow" />
             <div className="px-3 py-2 flex flex-col gap-1 justify-center text-[11px]">
+              <Link href={`/cards?slug=${co.slug}`} className="kbd text-amber hover:bg-amber hover:text-black w-fit">BATTLECARD →</Link>
               {co.careers_url && <a href={co.careers_url} target="_blank" className="link text-cyan">careers site ↗</a>}
               {co.ats_board_url && <a href={co.ats_board_url} target="_blank" className="link text-cyan">job board ↗</a>}
               {co.fortune_url && <a href={co.fortune_url} target="_blank" className="link text-cyan">fortune profile ↗</a>}

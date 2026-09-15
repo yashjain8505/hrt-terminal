@@ -162,3 +162,18 @@ export function stateCode(name: string | null | undefined): string {
   if (US_STATES[name]) return name;
   return STATE_BY_NAME[name.toLowerCase()] || name;
 }
+
+/** Which HR function an exec / leader title belongs to. */
+export type ExecDomain = "ta" | "payroll" | "benefits" | "comp" | "learning" | "hris" | "wfm" | "dei" | "hr";
+export function execDomain(title: string): ExecDomain {
+  const t = title.toLowerCase();
+  if (/talent acquisition|recruit|sourcing|staffing/.test(t)) return "ta";
+  if (/payroll/.test(t)) return "payroll";
+  if (/benefit|total rewards|rewards/.test(t)) return "benefits";
+  if (/compensation|equity/.test(t)) return "comp";
+  if (/learning|development|training|talent management|talent development|organi[sz]ational/.test(t)) return "learning";
+  if (/hris|hr technology|people technology|hr systems|people systems|hr digital|hcm|workday|successfactors/.test(t)) return "hris";
+  if (/workforce management|scheduling|labor/.test(t)) return "wfm";
+  if (/diversity|inclusion|dei|culture|engagement/.test(t)) return "dei";
+  return "hr";
+}
