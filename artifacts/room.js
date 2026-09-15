@@ -48,20 +48,23 @@
 
   // globe
   const gel = document.getElementById("globe");
-  const g = Globe()(gel).backgroundColor("rgba(0,0,0,0)").globeImageUrl("earth-night.jpg").backgroundImageUrl("night-sky.png")
-    .showAtmosphere(true).atmosphereColor("#7fb2ff").atmosphereAltitude(0.16)
+  const g = Globe()(gel).backgroundColor("rgba(0,0,0,0)")
+    .showGlobe(true).showAtmosphere(true).atmosphereColor("#4a6a8f").atmosphereAltitude(0.12)
+    .polygonsData(window.HRT_COUNTRIES.features).polygonCapColor(() => "#2a3646").polygonSideColor(() => "rgba(0,0,0,0)").polygonStrokeColor(() => "#46556a").polygonAltitude(0.006)
+    .polygonLabel((d) => `<div class="gtip"><b>${esc(d.properties.n)}</b></div>`)
     .pointLat("lat").pointLng("lng").pointsMerge(false).pointColor((d) => d.color).pointAltitude((d) => d.alt).pointRadius((d) => d.rad)
     .pointLabel((d) => `<div class="gtip"><b>${esc(d.co.name)}</b>${d.sit ? esc(d.sit.headline) : "No active situation"}${d.sit && d.sit.openedAt ? `<span>${ago(d.sit.openedAt)} · ${esc(d.co.sector || "")}</span>` : `<span>${esc(d.co.sector || "")}</span>`}</div>`)
     .onPointClick((d) => openCo(d.co))
-    .arcStartLat("startLat").arcStartLng("startLng").arcEndLat("endLat").arcEndLng("endLng").arcColor(() => ["rgba(240,176,74,.55)", "rgba(95,168,255,.15)"]).arcStroke(0.2).arcDashLength(0.35).arcDashGap(1).arcDashAnimateTime(2800).arcAltitudeAutoScale(0.32)
+    .arcStartLat("startLat").arcStartLng("startLng").arcEndLat("endLat").arcEndLng("endLng").arcColor(() => ["rgba(240,176,74,.5)", "rgba(95,168,255,.12)"]).arcStroke(0.18).arcDashLength(0.35).arcDashGap(1).arcDashAnimateTime(2800).arcAltitudeAutoScale(0.3)
     .arcLabel((d) => `<div class="gtip"><b>${esc(d.name)}</b>hiring in ${d.country}: ${d.count} open roles</div>`)
-    .ringLat("lat").ringLng("lng").ringColor((d) => (t) => d.color + Math.round((1 - t) * 220).toString(16).padStart(2, "0")).ringMaxRadius(3).ringPropagationSpeed(1.4).ringRepeatPeriod(1000)
-    .labelLat("lat").labelLng("lng").labelText((d) => d.co.name.toUpperCase()).labelSize(0.42).labelDotRadius(0.001).labelColor(() => "rgba(228,230,234,.8)").labelResolution(2).labelAltitude(0.07);
+    .ringLat("lat").ringLng("lng").ringColor((d) => (t) => d.color + Math.round((1 - t) * 220).toString(16).padStart(2, "0")).ringMaxRadius(2.6).ringPropagationSpeed(1.2).ringRepeatPeriod(1100)
+    .labelLat("lat").labelLng("lng").labelText((d) => d.co.name).labelSize(0.4).labelDotRadius(0.001).labelColor(() => "rgba(228,230,234,.82)").labelResolution(2).labelAltitude(0.03);
+  g.globeMaterial().color.set("#0b1016"); g.globeMaterial().emissive.set("#0b1016"); g.globeMaterial().shininess = 0;
   const resize = () => g.width(gel.clientWidth).height(gel.clientHeight); new ResizeObserver(resize).observe(gel); resize();
-  setTimeout(() => { const c = g.controls(); c.autoRotate = true; c.autoRotateSpeed = 0.3; g.pointOfView({ lat: 36, lng: -96, altitude: 1.7 }, 0); }, 150);
+  setTimeout(() => { const c = g.controls(); c.autoRotate = false; c.enableZoom = true; c.zoomSpeed = 0.6; g.pointOfView({ lat: 38, lng: -96, altitude: 1.35 }, 0); }, 150);
   function paintGlobe() {
     const lit = new Map(); for (const x of visible()) if (!lit.has(x.co.id)) lit.set(x.co.id, x.s);
-    const pts = D.companies.filter((c) => c.lat != null).map((co) => { const sit = lit.get(co.id) || null; return { co, lat: co.lat, lng: co.lng, sit, color: sit ? COLOR[sit.key] : "#2e343c", alt: sit ? 0.025 : 0.004, rad: sit ? 0.24 : 0.07 }; });
+    const pts = D.companies.filter((c) => c.lat != null).map((co) => { const sit = lit.get(co.id) || null; return { co, lat: co.lat, lng: co.lng, sit, color: sit ? COLOR[sit.key] : "#55657a", alt: sit ? 0.02 : 0.008, rad: sit ? 0.26 : 0.09 }; });
     g.pointsData(pts);
     const litPts = pts.filter((p) => p.sit);
     g.labelsData(litPts.sort((a, b) => (b.sit.openedAt > a.sit.openedAt ? 1 : -1)).slice(0, 30));
@@ -83,7 +86,6 @@
     document.getElementById("wdate").textContent = cur.s.openedAt + " · " + (S.idx + 1) + "/" + list.length;
     const rings = show.slice(0, 5).map((x) => ({ lat: x.co.lat, lng: x.co.lng, color: COLOR[x.s.key] })).filter((r) => r.lat != null);
     g.ringsData(rings);
-    if (cur.co.lat != null) g.pointOfView({ lat: cur.co.lat, lng: cur.co.lng, altitude: 1.5 }, 1200);
   }
   function step(n) { const list = visible(); if (!list.length) return; S.idx = (S.idx + n + list.length) % list.length; renderWire(); }
   function togglePlay() { S.playing = !S.playing; document.getElementById("play").textContent = S.playing ? "❚❚" : "▶"; }
@@ -93,7 +95,7 @@
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   timer = setInterval(() => { if (S.playing && !reduce) step(1); }, 3200);
 
-  function openCo(co, k) { q.value = ""; hits.classList.remove("show"); q.blur(); S.account = co; S.view = "story"; S.storyKey = k || (topOf.get(co.id) || {}).key; renderRight(); if (co.lat != null) g.pointOfView({ lat: co.lat, lng: co.lng, altitude: 1.2 }, 900); }
+  function openCo(co, k) { q.value = ""; hits.classList.remove("show"); q.blur(); S.account = co; S.view = "story"; S.storyKey = k || (topOf.get(co.id) || {}).key; renderRight(); if (co.lat != null) { const pv = g.pointOfView(); const far = Math.abs(pv.lat - co.lat) > 25 || Math.abs(pv.lng - co.lng) > 40; g.pointOfView({ lat: co.lat, lng: co.lng, altitude: far ? 1.3 : pv.altitude }, 900); } }
 
   // right panel
   function renderRight() {
