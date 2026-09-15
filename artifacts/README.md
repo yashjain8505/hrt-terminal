@@ -15,4 +15,6 @@ npx esbuild src/lib/browser.ts --bundle --format=iife --minify --outfile=artifac
 | `mekko.html` | Stack Marimekko: vendor share by sector | https://claude.ai/code/artifact/e5c25d4f-7e45-4a58-b335-6f2ffa17ccfe |
 | `stream.html` | Trigger stream: weekly stacked area + wire | https://claude.ai/code/artifact/1469375c-2007-4018-b829-9624691a5af7 |
 
+| `desk.html` | **Sales Desk (plain direction)**: Today / Lists / Settings + account brief, white paper, Archivo + Source Sans 3 | https://claude.ai/code/artifact/821efd0c-b686-4332-8dde-6d58267a26c3 |
+
 Shared files: `data.js` (exported snapshot), `hrt-lib.js` (scoring, why-now, battlecard, playbook), `hrt-ui.js` (chrome, profile switcher, helpers), `earth-night.jpg` (globe texture).
