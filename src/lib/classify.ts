@@ -52,7 +52,7 @@ const RULES: { bucket: Bucket; test: (t: string) => boolean }[] = [
   {
     bucket: "recruiting",
     test: (t) =>
-      /\b(recruit(er|ing|ment)|talent acquisition|talent partner|sourcer|sourcing (specialist|partner|lead|manager)|staffing (specialist|coordinator|partner|manager)|campus (recruit|program)|university (recruit|relations)|early careers?|talent scout|\bta (partner|specialist|coordinator|manager|lead)\b|technical recruiter|executive search)\b/i.test(t),
+      /\b(recruit(er|ing|ment)|talent acquisition|talent partner|sourcer|sourcing (specialist|partner|lead|manager)|staffing (specialist|coordinator|partner|manager)|campus (recruit|program manager)|university (recruit|relations)|early careers? (recruit|program manager|programs? lead|talent)|talent scout|\bta (partner|specialist|coordinator|manager|lead)\b|technical recruiter|executive search)\b/i.test(t) && !/\b(program|programme) [–-]/i.test(t),
   },
   { bucket: "payroll", test: (t) => /\bpayroll\b/i.test(t) },
   {
