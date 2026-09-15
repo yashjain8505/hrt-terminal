@@ -1,98 +1,91 @@
-# HRT · HR Signals Terminal (v0)
+# HRT · HR buying situations
 
-A Bloomberg-style terminal for people who sell HR, hiring, recruiting and payroll software into the Fortune 500.
+**Which companies are in a buying situation for HR software right now, with the proof, and the list to sequence.**
 
-Every row on the tape is one public fact about one Fortune 500 company: an open HR-function role, the ATS or HRIS its careers site runs on, an 8-K officer change, a WARN layoff notice. Pick what you sell (one of 12 offer profiles) and the same facts re-rank, with a "why now" line written for your offer and a draft first-touch message per account.
+HRT watches public job boards, SEC filings, layoff notices and the news for every company in its universe. When a company enters one of the situations below, HRT names it, shows the dated facts, says who to talk to, writes the first line, and lets you download the list for your sequencer.
 
-**v0 = one snapshot of all 498 companies on the 2026 Fortune 500 list.** The data ships in the repo (`data/terminal.db`), so the terminal runs locally with no API keys and no pipeline run.
+Universe today: the 2026 Fortune 500 (498 companies). Mid-market is next.
 
-## Run it locally
+## Run it
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Keys: `⌘K` or `/` opens the command line (type a company, a ticker, or a command such as `TAPE`, `GLOBE`, `CARDS`, `CAMPAIGN`, `MATRIX`, `TIMELINE`, `PROF`, or a profile code like `PAYROLL`). `F1`–`F10` jump between screens.
+Open http://localhost:3000. The data ships in the repo, so nothing else is needed.
 
-## The five sales artifacts
+## How to use it
 
-The raw tape is a firehose. These five screens turn it into things a rep can act on. All of them re-rank for the chosen offer profile.
+1. **Pick what you sell** (top right). Twelve offer profiles. The same facts re-rank and the wording changes for your product.
+2. **Pick your book** (top right, "All 498"). Paste the domains of the accounts you own. Everything narrows to them, including the CSV.
+3. **Read the wire** (left). Every account entering a situation, newest last, replaying. Space pauses. Click one to open it. The globe follows.
+4. **Pick a situation** (right, the tiles). The list under it is every account in that situation, newest first, with the fact that proves it and who to talk to.
+5. **Open an account.** The story: what is happening, the facts with links, the window, who to talk to, your angle against what they run, people movement in the last 90 days, and a first line to copy.
+6. **Download CSV.** Every account in the situation (and your book) with headline, two facts with URLs, three contact titles, what it means, and the first line. Import into Outreach, Salesloft, Apollo or Clay and add the people there.
 
-| Key | Screen | Question it answers |
+## The situations
+
+| Situation | Fires on | Window |
 |---|---|---|
-| F6 | `/globe` **GLOBE** | What is happening across the Fortune 500 right now? HQs on a globe coloured by what is going on, arcs to the countries each company hires in, and a feed replaying 180 days of dated events (exec roles opened, 8-Ks, layoffs). |
-| F7 | `/cards` **BATTLECARDS** | I am about to call this account. What do I say? One printable card per account: top triggers with proof URLs, incumbent stack with the angle against it, buyer titles to search for, an opening line, discovery questions, risk flags. |
-| F8 | `/campaign` **CAMPAIGN** | Who do I put in a sequence this week? Pick a segment (incumbent vendor × sector × state × hiring volume × trigger), get the ranked list with hooks and buyer titles, a 3-touch sequence template, and a CSV export for Outreach / Salesloft / Apollo. |
-| F9 | `/matrix` **MATRIX** | Where is my displacement territory? ATS or HRIS vendor × sector heatmap (accounts, open roles, or profile score). Click a cell to build that campaign. |
-| F10 | `/timeline` **TIMELINE** | What changed this week? Dated triggers in swimlanes over 90/180/365 days, plus "this week: act now" and "last week: follow up" tables. |
+| New HR leader arriving or just arrived | Appointment in the news or an 8-K (named), an HR-leader posting that came off the board, a VP+ HR role posted, or an HR leader leaving | 45–120 days |
+| HR systems project underway | HRIS / Workday / SuccessFactors / payroll-systems roles posted; legacy systems still named in job posts | 120 days |
+| Building or scaling the recruiting team | Two or more dated recruiting roles, or recruiting-ops roles | 60 days |
+| Consolidating after an acquisition | 8-K item 2.01, a completed deal in the news, HR M&A / integration roles | 120 days |
+| Cutting costs after layoffs | WARN notice of 50+ people, 8-K item 2.05, layoffs in the news | 60 days |
+| Expanding to new countries | First postings in a new country between snapshots | 90 days |
+| Funded, HR forming, thresholds, hourly surge | Not yet: need funding feeds, the mid-market universe, headcount estimates | — |
 
-The knowledge behind them lives in `src/lib/playbook.ts` (buyer titles per profile, displacement angles per incumbent vendor, discovery questions per trigger) and is meant to be edited.
+Every situation carries a confidence: **high** = two or more dated facts, or a named, sourced appointment; **medium** = one dated fact. Undated facts never make a headline.
 
-## Other screens
+## People movement
 
-| Screen | What it is |
+Built from three free sources, corroborated and deduplicated by person and role:
+
+- **Appointments and departures in the news.** Google News RSS, no key. The headline's grammar decides who is hiring: "Kroger taps McDonald's veteran as chief people officer" is an arrival at Kroger and a departure from McDonald's. Multiple articles about one move merge into one record with all sources.
+- **SEC 8-K item 5.02.** The filing text is parsed for "appointed X as TITLE effective DATE" and departures. Official, dated, named. HR officers rarely appear (they are seldom "named executive officers"), so most 8-K moves are other officers and are shown as context.
+- **The job board.** An HR posting that was on the board last snapshot and is gone now was filled or withdrawn. New postings since last snapshot. Only counted where we read the board in full.
+
+LinkedIn profiles are not read. That data lives inside LinkedIn or with paid resellers. Sales Navigator's job-change alerts on saved leads are the legitimate individual-level source; HRT is the company-level version.
+
+## Data sources (all free, no keys)
+
+| Source | Used for |
 |---|---|
-| `/` **TAPE** | All signals across the universe, ranked for your offer profile. Filter by group (HIRING / STACK / FILINGS / RISK / LIST), strength, or free text. |
-| `/a/<slug>` **ACCOUNT** | One company: Fortune facts, HR stack evidence, ranked signals with why-now, open HR-function roles, hiring footprint (states, countries, worker types), 8-K filings, WARN notices, and a draft outreach message. |
-| `/u` **UNIV** | All 498 companies as a sortable table: ATS, HRIS, detection status, open roles, HR roles, signal count, profile score. |
-| `/p` **PROF** | Choose the offer profile (12 categories in 4 families). |
-| `/run` **RUN** | What the pipeline found, coverage percentages, and the known blind spots. |
+| fortune.com ranking page | universe: rank, sector, HQ, employees, revenue |
+| Company careers sites and job boards (Workday, Greenhouse, Lever, Ashby, SmartRecruiters, Phenom, Amazon) | ATS / HRIS detection, open roles, HR-function postings with dates, tools named in job descriptions |
+| SEC `company_tickers.json`, `data.sec.gov/submissions`, EDGAR archives | 8-K items 5.02 / 2.05 / 2.01, and the 5.02 text for named officer moves |
+| California EDD WARN workbook | layoff notices |
+| Google News RSS | HR-leader appointments and departures, layoffs, completed acquisitions |
 
-## Data sources (all public, no keys)
-
-| Source | What we take | Step |
-|---|---|---|
-| fortune.com ranking page (embedded JSON) | rank, sector, industry, HQ, employees, revenue, profit, market value, list flags | `01-universe` |
-| Clearbit autocomplete + hand-checked overrides | company domain | `01-universe`, `01b` |
-| Company websites | careers URL, ATS / HRIS / career-site vendor detection by host and asset patterns; Phenom career sites also reveal the underlying Workday tenant through apply links | `02-detect-ats` |
-| Job boards with open JSON APIs: Workday, Greenhouse, Lever, Ashby, SmartRecruiters, Phenom, plus an Amazon adapter | open-role totals, facets (countries, worker types), HR-function postings via keyword search and the Workday "Human Resources" job-family facet, tool mentions in job descriptions | `03-snapshot` |
-| SEC `company_tickers.json` + `data.sec.gov/submissions` | CIK match, 8-K filings in the last 365 days with item codes (5.02 officer change, 2.05 restructuring, 2.01 acquisition) | `04-sec` |
-| California EDD WARN workbook | layoff notices matched to Fortune 500 names | `05-warn` |
-
-`08-situations` turns signals into **situations** (`src/lib/situations.ts`): what the company is doing in HR terms, proven by dated facts, with a window and buyer titles. `09-diff` compares the latest two snapshots (job_history keeps every snapshot's HR postings) and emits role filled / role opened / velocity / new country events. `12-news` reads Google News RSS (no key) for HR-leader appointments and departures, layoffs and acquisitions, attributing each headline to the hiring company by its syntax.
-
-`07-geo` adds HQ coordinates (exact from the headquarters dataset, else city table, else state centroid) for the globe.
-
-`06-signals` turns all of it into typed signals with a 1–5 strength and a dedupe key. `src/lib/profiles.ts` holds the 12 offer profiles and their per-signal weights; `src/lib/whynow.ts` holds the why-now templates; `src/lib/outreach.ts` drafts the message.
-
-## Re-run the pipeline
+## Refresh the data
 
 ```bash
-npm run pipeline          # everything, ~25 min, writes data/terminal.db
-npm run p:snapshot        # just re-pull job boards
+npm run refresh      # weekly: boards, SEC, WARN, news, diffs, moves, signals, situations (~30 min)
+npm run pipeline     # full rebuild including universe and ATS detection (~60 min)
 ```
 
-Steps accept `LIMIT=30` (first N companies), `ONLY=<slug>` (one company) and `CONC=<n>` (parallelism).
+A GitHub Actions workflow (`.github/workflows/refresh.yml`) runs the refresh and commits the database. It is manual-trigger only until it has run clean a few times; then add a schedule.
 
-## People movement (the "who just moved" signal)
-
-Free sources only, corroborated:
-- **Appointment in the news**: Google News RSS sweeps for "names / appoints / joins as" plus CHRO, Chief People Officer, VP People, Head of Talent, Head of Total Rewards; per-company queries for the same. The headline's syntax decides who is hiring ("Kroger taps McDonald's veteran…" = arrival at Kroger, departure from McDonald's).
-- **Role filled**: an HR-leader posting that was on the board last snapshot and is gone this snapshot (only where we read the board in full).
-- **Role opened**: new HR postings since the last snapshot.
-Shown on the account story as "People movement · last 60 days" and used by the "New HR leader" situation ("just got a new leader: <name>").
-
-LinkedIn profile changes are not read. That data is only available inside LinkedIn or from paid resellers; the two free signals above approximate it at leadership level.
-
-## What v0 does not do yet
-
-- **Change over time.** Everything here is one snapshot. Velocity, new states, ATS switches and "new since last week" start with the second run (the schema keeps every snapshot).
-- **Pull iCIMS, SuccessFactors, Oracle, Taleo boards.** They are detected (status `detected`) but each needs its own adapter.
-- **Read big custom career sites** (Apple, Microsoft, Google, Walmart). Amazon has an adapter.
-- **Read 8-K text** to tell a CHRO change from any other officer change.
-- **WARN outside California**, Form 5500 (benefits) and H-1B LCA (immigration) feeds, so the BENEFIT and GLOBAL profiles run on partial data.
-- Workday only says "Posted 30+ Days Ago" for older roles, so on the timeline those all land on the same day. Dates sharpen on the second run.
-- Contact data, CRM sync, sending anything. Out of scope on purpose. The CSV export is built to be uploaded into the tool that does.
+Snapshots are kept (`job_history`), so every refresh sharpens the diff signals: roles filled, roles opened, hiring velocity, new countries.
 
 ## Layout
 
 ```
-scripts/        pipeline steps 01–06 (tsx)
-src/lib/        db.ts (SQLite schema), vendors.ts, classify.ts, pullers.ts, profiles.ts, whynow.ts, outreach.ts, queries.ts
-src/app/        Next.js app router screens
-src/components/ terminal chrome (header, function keys, ticker, command palette)
-data/           terminal.db (shipped), raw/ (cached downloads), domain-overrides.json
+public/room/        the app: index.html, room.js (UI), hrt-lib.js (situations, scoring, playbook; built from src/lib)
+src/app/route.ts    serves the room at /
+src/app/api/data    live JSON bundle from SQLite
+src/app/api/export  CSV for a situation (+ profile, + book)
+src/lib/            situations.ts (rules), moves.ts (8-K parser), playbook.ts (buyers, angles, questions), classify.ts, vendors.ts, pullers.ts
+scripts/            pipeline steps 01–13
+artifacts/          publishable copies (npm run artifacts)
+data/terminal.db    the database, committed
 ```
 
-Stack: Next.js 16, React 19, Tailwind 4, better-sqlite3, react-globe.gl (three.js). No external services at runtime; globe textures are served from `public/globe`.
+## Known limits
+
+- One universe (Fortune 500). Mid-market discovery through public boards is the next build.
+- 139 companies run iCIMS, SuccessFactors, Oracle or Taleo, which are detected but not read yet.
+- WARN is California only.
+- Workday dates older than 30 days are approximate and are excluded from dated facts.
+- No people data by design: titles and LinkedIn search links only. Add people in your sequencer.

@@ -1,0 +1,21 @@
+name: Refresh data (manual)
+# Runs the weekly refresh and commits the database. Manual trigger only until it has run clean a few times.
+on:
+  workflow_dispatch:
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run refresh
+        env: { CONC: "6" }
+      - run: |
+          git config user.name "hrt-bot"
+          git config user.email "hrt-bot@users.noreply.github.com"
+          git add data/terminal.db
+          git commit -m "data: weekly refresh $(date -u +%F)" || echo "no changes"
+          git push

@@ -64,12 +64,19 @@ function matchExact(subject: string, co: Co): boolean {
   const sub = norm(subject);
   return variants(co).some((v) => { const n = norm(v); return n.length >= 2 && (sub === n || sub === n.replace(/\s+/g, "")); });
 }
+const PERSON = "([A-Z][a-z.'’-]+(?: [A-Z]\\.)?(?: \\(?[A-Z][a-z.'’-]+\\)?){1,3})";
+const NOT_PERSON = /\b(chief|officer|president|vice|executive|senior|head|director|global|human|resources|people|talent|rewards|acquisition|new|company|group|inc|corp|the|its|former|veteran|exec|appointment|board)\b/i;
 function person(title: string): string | null {
-  const t = title.replace(/\s+-\s+[^-]+$/, "");
-  let m = t.match(/^([A-Z][a-z.'-]+(?: [A-Z][a-z.'-]+){1,3}) (?:has been |is |was )?(?:appointed|named|joins|hired|tapped|promoted|becomes|to join|to lead)\b/i);
-  if (m) return m[1];
-  m = t.match(/\b(?:appoints|names|hires|taps|welcomes|promotes|announces)\s+([A-Z][a-z.'-]+(?: [A-Z][a-z.'-]+){1,3})\s+(?:as|to)\b/);
-  if (m) return m[1];
+  const t = title.replace(/\s+-\s+[^-]+$/, "").replace(/’/g, "'");
+  const ok = (x: string) => { if (!x) return null; const y = x.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+(For|As|To|At|With|Of|And|The|New)$/g, "").replace(/\s+/g, " ").trim(); return !NOT_PERSON.test(y) && y.split(" ").length >= 2 ? y : null; };
+  const V1 = "(?:[Aa]ppointed|[Nn]amed|[Jj]oins|[Hh]ired|[Tt]apped|[Pp]romoted|[Bb]ecomes|[Tt]o [Jj]oin|[Tt]o [Ll]ead|[Rr]ejoins)";
+  const V2 = "(?:[Aa]ppoints|[Nn]ames|[Hh]ires|[Tt]aps|[Ww]elcomes|[Pp]romotes|[Aa]nnounces|[Ee]levates|[Ss]elects|[Aa]dds)";
+  let m = t.match(new RegExp("^(?:[A-Z][A-Za-z&.' -]{1,40}?'s )?(?:Dr\\. |Mr\\. |Ms\\. )?" + PERSON + " (?:[Hh]as [Bb]een |[Ii]s |[Ww]as )?" + V1 + "\\b"));
+  if (m && ok(m[1])) return ok(m[1]);
+  m = t.match(new RegExp("\\b" + V2 + "\\s+(?:Dr\\. |Mr\\. |Ms\\. )?" + PERSON + "\\s+(?:[Aa]s|[Tt]o|[Ff]or|[Cc]hief|[Hh]ead|VP|[Vv]ice|EVP|SVP|[Ee]xecutive|[Ss]enior|[Ii]ts|[Nn]ew)\\b"));
+  if (m && ok(m[1])) return ok(m[1]);
+  m = t.match(new RegExp("\\b(?:[Aa]ppointment|[Pp]romotion|[Hh]iring) of\\s+(?:Dr\\. |Mr\\. |Ms\\. )?" + PERSON + "\\s+(?:[Aa]s|[Tt]o)\\b"));
+  if (m && ok(m[1])) return ok(m[1]);
   return null;
 }
 function decode(s: string): string { return s.replace(/<!\[CDATA\[|\]\]>/g, "").replace(/&amp;/g, "&").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">"); }
@@ -119,7 +126,7 @@ async function main() {
       for (const r of rows) {
         const co = byId.get(r.company_id)!; const k = kindOf(r.title, co);
         if (!k) { del.run(r.id); dropped++; continue; }
-        if (k === "appointment") { const sub = subjectCompany(r.title); const mh = sub.hiring ? matchExact(sub.hiring, co) : false; const mf = sub.from ? matchExact(sub.from, co) : false; if (mh) upd.run("appointment", "high", r.id); else if (mf) upd.run("departure", "high", r.id); else if (!sub.hiring && !sub.from && !GENERIC.has(variants(co)[1]?.toLowerCase() || "")) upd.run("appointment", "low", r.id); else { del.run(r.id); dropped++; continue; } kept++; continue; }
+        if (k === "appointment") { const sub = subjectCompany(r.title); const mh = sub.hiring ? matchExact(sub.hiring, co) : false; const mf = sub.from ? matchExact(sub.from, co) : false; if (mh) upd.run("appointment", "high", r.id); else if (mf) upd.run("departure", "high", r.id); else if (!sub.hiring && !sub.from && !GENERIC.has(variants(co)[1]?.toLowerCase() || "")) upd.run("appointment", "low", r.id); else { del.run(r.id); dropped++; continue; } d.prepare("UPDATE news SET person=?, role=? WHERE id=?").run(person(r.title), (r.title.match(ROLE_RE) || [""])[0] || null, r.id); kept++; continue; }
         upd.run(k, "high", r.id); kept++;
       }
       d.prepare("DELETE FROM signals WHERE type IN ('exec.hr_appointment','exec.hr_departure','news.layoffs','news.acquisition','news.funding')").run();

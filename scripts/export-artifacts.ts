@@ -18,8 +18,10 @@ for (const s of snaps) {
   snapshots[Number(s.company_id)] = { taken_at: s.taken_at, vendor: s.ats_vendor, open_roles: s.open_roles, counts: JSON.parse(String(s.counts_json || "{}")), states: JSON.parse(String(s.states_json || "{}")), countries: JSON.parse(String(s.countries_json || "{}")), tools: JSON.parse(String(s.tools_json || "{}")), workerSubType: f.workerSubType || null, hrFamily: f.hrFamily || null };
 }
 const warn = d.prepare("SELECT company_id,state,company_name_raw,notice_date,employees,location FROM warn_notices WHERE company_id IS NOT NULL").all();
+const hasMoves = d.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='moves'").get() != null;
+const moves = hasMoves ? d.prepare("SELECT company_id, kind, person, role, hr, date, source_kind, source_url, title, confidence, sources_json FROM moves").all() : [];
 const meta = { generated: new Date().toISOString().slice(0, 10), companies: companies.length, signals: signals.length, hrJobs: jobs.length, boards: snaps.length, filings: (d.prepare("SELECT count(*) n FROM sec_filings").get() as { n: number }).n };
-const payload = { meta, companies, signals, jobs, snapshots, warn };
+const payload = { meta: { ...meta, moves: moves.length }, companies, signals, jobs, snapshots, warn, moves };
 fs.writeFileSync(path.join(OUT, "data.js"), "window.HRT = " + JSON.stringify(payload) + ";\n");
 fs.copyFileSync(path.join(process.cwd(), "public", "globe", "earth-night.jpg"), path.join(OUT, "earth-night.jpg"));
 console.log("wrote artifacts/data.js", (fs.statSync(path.join(OUT, "data.js")).size / 1024).toFixed(0), "KB", meta);

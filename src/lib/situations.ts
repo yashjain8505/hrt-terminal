@@ -120,16 +120,28 @@ export function detectSituations(co: CompanyIn, jobs: JobIn[], signals: SignalIn
     const meta = SITUATION_BY_KEY.new_leader;
     const appts = signals.filter((s) => s.type === "exec.hr_appointment" && inWindow(s.observed_at.slice(0, 10), 90));
     const filledExec = signals.filter((s) => s.type === "hiring.role_filled" && inWindow(s.observed_at.slice(0, 10), 90)).filter((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return p.bucket === "people_exec"; });
+    const departs = signals.filter((s) => s.type === "exec.hr_departure" && inWindow(s.observed_at.slice(0, 10), 120) || (s.type === "exec.hr_departure" && s.observed_at.slice(0, 10) > asOf));
+    if (!appts.length && !filledExec.length && departs.length) {
+      const p = departs[0].payload_json ? JSON.parse(departs[0].payload_json) : {};
+      const facts: Fact[] = departs.slice(0, 3).map((s) => { const q = s.payload_json ? JSON.parse(s.payload_json) : {}; return { date: s.observed_at.slice(0, 10), text: `${q.person && !String(q.person).startsWith("(unnamed)") ? q.person + ", " : ""}${q.role || "HR leader"}, is leaving`, url: s.source_url, kind: "filing" as const }; });
+      const dom = DOMAIN_WORD[execDomain(String(p.role || ""))] || "HR";
+      const openedAtRaw = newest(facts);
+      const openedAt = openedAtRaw && openedAtRaw > asOf ? asOf : openedAtRaw;
+      out.push({ key: "new_leader", headline: `${co.name}'s ${dom} leader is leaving; the seat is opening`, openedAt, windowEnds: openedAt ? addDays(openedAt, 120) : null, confidence: departs.some((s) => (s.payload_json ? JSON.parse(s.payload_json).confidence : "") === "official") ? "high" : "medium", facts, buyers: SITUATION_BY_KEY.new_leader.buyers });
+    }
     if (appts.length || filledExec.length) {
       const facts: Fact[] = [
-        ...appts.map((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return { date: s.observed_at.slice(0, 10), text: `${p.person ? p.person + " " : ""}${p.role ? "named " + String(p.role).replace(/^\w/, (c) => c.toUpperCase()) : "HR leadership appointment"} · ${s.title}`, url: s.source_url, kind: "filing" as const }; }),
+        ...appts.map((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; const who = p.person && !String(p.person).startsWith("(unnamed)") ? p.person + " " : ""; const n = Array.isArray(p.sources) ? p.sources.length : 1; return { date: s.observed_at.slice(0, 10), text: `${who}named ${p.role ? String(p.role).replace(/^\w/, (c: string) => c.toUpperCase()) : "HR leader"}${n > 1 ? ` (${n} sources)` : ""}${p.confidence === "official" ? " (SEC 8-K)" : ""}`, url: s.source_url, kind: "filing" as const }; }),
         ...filledExec.map((s) => { const p = s.payload_json ? JSON.parse(s.payload_json) : {}; return { date: s.observed_at.slice(0, 10), text: `"${p.title}" posting came off the board (hired or withdrawn)`, url: s.source_url, kind: "role" as const }; }),
       ].slice(0, 4);
       const lead = appts[0] ? (appts[0].payload_json ? JSON.parse(appts[0].payload_json) : {}) : null;
       const dom = lead && lead.role ? (DOMAIN_WORD[execDomain(String(lead.role))] || "HR") : filledExec[0] ? (DOMAIN_WORD[execDomain(String(JSON.parse(filledExec[0].payload_json || "{}").title || ""))] || "HR") : "HR";
-      const headline = lead ? `${co.name} just got a new ${dom} leader${lead.person ? ": " + lead.person : ""}` : `${co.name} appears to have just hired a ${dom} leader`;
-      const openedAt = newest(facts);
-      out.push({ key: "new_leader", headline, openedAt, windowEnds: openedAt ? addDays(openedAt, 90) : null, confidence: appts.some((a) => (a.payload_json ? JSON.parse(a.payload_json).confidence : "") === "high") || facts.length >= 2 ? "high" : "medium", facts, buyers: meta.buyers });
+      const named = lead && lead.person && !String(lead.person).startsWith("(unnamed)") ? String(lead.person) : null;
+      const headline = lead ? `${co.name} just got a new ${dom} leader${named ? ": " + named : ""}` : `${co.name} appears to have just hired a ${dom} leader`;
+      const openedAtRaw = newest(facts);
+      const openedAt = openedAtRaw && openedAtRaw > asOf ? asOf : openedAtRaw;
+      const strong = appts.some((a) => { const q = a.payload_json ? JSON.parse(a.payload_json) : {}; const n = Array.isArray(q.sources) ? q.sources.length : 1; return q.confidence === "official" || n >= 2 || (q.confidence === "reported" && q.person && !String(q.person).startsWith("(unnamed)")); });
+      out.push({ key: "new_leader", headline, openedAt, windowEnds: openedAt ? addDays(openedAt, 90) : null, confidence: strong || facts.length >= 2 ? "high" : "medium", facts, buyers: meta.buyers });
     }
   }
   // 1. New HR leader ARRIVING: VP+ / Head of / Chief roles posted (dated). Directors only count when two are dated.
