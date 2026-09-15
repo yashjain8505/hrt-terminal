@@ -1,0 +1,100 @@
+<title>HRT Stack Mekko</title>
+<style>
+  .wrap{padding:8px;display:grid;gap:8px;max-width:1600px;margin:0 auto}
+  .ctl{display:flex;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid var(--line);font-size:11px;flex-wrap:wrap}
+  .chart{padding:12px 12px 4px;overflow-x:auto}
+  svg{display:block;width:100%;height:auto}
+  .seg{cursor:pointer;stroke:#0e0c0a;stroke-width:2}
+  .seg:hover{stroke:#ffa028;stroke-width:1.5}
+  .seg.sel{stroke:#ffa028;stroke-width:2}
+  .lbl-seg{font:600 11px var(--mono);fill:#0e0c0a;pointer-events:none}
+  .lbl-col{font:10.5px var(--mono);fill:#9b9283}
+  .lbl-n{font:11px var(--mono);fill:#efe9dc}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;padding:8px 12px 12px;font-size:11px;color:var(--muted)}
+  .legend span i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px}
+  .list{padding:0}
+  .row{display:grid;grid-template-columns:40px 1.2fr 90px 80px 2fr 60px;gap:10px;padding:6px 12px;border-bottom:1px solid #191612;align-items:center;font-size:11.5px}
+  .row:hover{background:#141210}
+  .row .r{color:var(--dim);text-align:right}
+  .row .co{font-weight:600}
+  .row .t{font-family:var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .sc{color:var(--amber);text-align:right}
+  .hdr{display:grid;grid-template-columns:40px 1.2fr 90px 80px 2fr 60px;gap:10px;padding:5px 12px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .read{font-family:var(--sans);font-size:12.5px;color:var(--muted);padding:8px 12px 12px;max-width:80ch}
+</style>
+<script src="hrt-lib.js"></script>
+<script src="data.js"></script>
+<script src="hrt-ui.js"></script>
+<div class="wrap">
+  <section class="panel">
+    <div class="ptitle"><span><span class="k">1</span>Who runs what · column width = accounts in sector · stack = vendor share</span><span class="r" id="desc"></span></div>
+    <div class="ctl"><span class="lbl">Axis</span><button class="kbd on" data-axis="ats_vendor">ATS</button><button class="kbd" data-axis="hris_vendor">HRIS / payroll</button><span class="lbl" style="margin-left:12px">Height</span><button class="kbd on" data-metric="n">accounts</button><button class="kbd" data-metric="roles">open roles</button><span style="margin-left:auto;color:var(--dim)">hover a block for detail · click to list the accounts</span></div>
+    <div class="chart"><svg id="svg" viewBox="0 0 1400 520" role="img" aria-label="Marimekko chart of ATS vendors by sector"></svg></div>
+    <div class="legend" id="legend"></div>
+    <div class="read">Read it as displacement territory. A wide, tall block on a legacy vendor is a campaign. Blocks are ordered the same way in every column, so a vendor's colour never changes as you filter.</div>
+  </section>
+  <section class="panel">
+    <div class="ptitle"><span><span class="k">2</span>Accounts in the selected block</span><span class="r" id="sel-desc">click a block</span></div>
+    <div class="hdr"><span>#</span><span>Company</span><span>HQ</span><span>Open roles</span><span>Lead trigger for your profile</span><span style="text-align:right">Score</span></div>
+    <div class="list" id="list"></div>
+  </section>
+</div>
+<script>
+(function(){
+  const U = window.HRTUI, L = U.L, D = U.D;
+  U.bar("STACK MEKKO");
+  const PAL = ["#3987e5","#d95926","#199e70","#c98500","#d55181","#008300","#9085e9","#e66767"], OTHER = "#5e574d";
+  let axis = "ats_vendor", metric = "n", sel = null;
+  document.querySelectorAll("[data-axis]").forEach((b) => b.addEventListener("click", () => { axis = b.dataset.axis; document.querySelectorAll("[data-axis]").forEach((x) => x.classList.toggle("on", x === b)); sel = null; render(); }));
+  document.querySelectorAll("[data-metric]").forEach((b) => b.addEventListener("click", () => { metric = b.dataset.metric; document.querySelectorAll("[data-metric]").forEach((x) => x.classList.toggle("on", x === b)); render(); }));
+  function render() {
+    const P = U.profile();
+    const rows = D.companies.filter((c) => c[axis]);
+    const vCount = {}; rows.forEach((c) => (vCount[c[axis]] = (vCount[c[axis]] || 0) + 1));
+    const vendors = Object.entries(vCount).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+    const topV = vendors.slice(0, 7); const color = (v) => { const i = topV.indexOf(v); return i >= 0 ? PAL[i] : OTHER; };
+    const key = (v) => (topV.includes(v) ? v : "other");
+    const rawCount = {}; rows.forEach((c) => { const s = c.sector || "Other"; rawCount[s] = (rawCount[s] || 0) + 1; });
+    const secOf = (c) => { const s = c.sector || "Other"; return rawCount[s] >= 8 ? s : "Other sectors"; };
+    const sCount = {}; rows.forEach((c) => { const s = secOf(c); sCount[s] = (sCount[s] || 0) + 1; });
+    const sectors = Object.entries(sCount).sort((a, b) => (a[0] === "Other sectors" ? 1 : b[0] === "Other sectors" ? -1 : b[1] - a[1])).map(([k]) => k);
+    const cell = {}; for (const c of rows) { const s = secOf(c), v = key(c[axis]); const k = s + "|" + v; (cell[k] ||= { s, v, n: 0, roles: 0, cos: [] }); cell[k].n++; cell[k].roles += c.open_roles || 0; cell[k].cos.push(c); }
+    const W = 1400, H = 520, M = { t: 26, r: 10, b: 70, l: 40 }, gap = 3;
+    const tot = rows.length; const innerW = W - M.l - M.r - gap * (sectors.length - 1);
+    let x = M.l; const svg = []; const labels = [];
+    for (const s of sectors) {
+      const w = (innerW * sCount[s]) / tot;
+      const colCells = [...topV, "other"].map((v) => cell[s + "|" + v]).filter(Boolean);
+      const colTot = colCells.reduce((a, c) => a + (metric === "n" ? c.n : c.roles), 0) || 1;
+      const colH = metric === "n" ? H - M.t - M.b : (H - M.t - M.b) * Math.min(1, Math.max(0.15, colCells.reduce((a, c) => a + c.roles, 0) / Math.max(...sectors.map((ss) => [...topV, "other"].map((v) => cell[ss + "|" + v]).filter(Boolean).reduce((a, c) => a + c.roles, 0)))));
+      let y = H - M.b;
+      for (const c of colCells) {
+        const val = metric === "n" ? c.n : c.roles; const h = (colH * val) / colTot; y -= h;
+        const id = c.s + "|" + c.v; const isSel = sel === id;
+        svg.push(`<rect class="seg ${isSel ? "sel" : ""}" data-id="${U.esc(id)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" fill="${color(c.v)}"/>`);
+        if (h > 16 && w > 54) svg.push(`<text class="lbl-seg" x="${(x + 6).toFixed(1)}" y="${(y + h / 2 + 4).toFixed(1)}">${U.esc((c.v === "other" ? "Other" : U.vendorName(c.v)).split(" ")[0])} ${metric === "n" ? c.n : (c.roles >= 1000 ? (c.roles / 1000).toFixed(1) + "k" : c.roles)}</text>`);
+      }
+      const short = { "Food, Beverages & Tobacco": "Food & Bev", "Engineering & Construction": "Eng & Constr", "Business Services": "Biz Services", "Household Products": "Household", "Hotels, Restaurants & Leisure": "Hotels & Leisure", "Motor Vehicles & Parts": "Motor Vehicles", "Telecommunications": "Telecom", "Aerospace & Defense": "Aero & Defense" }[s] || s;
+      labels.push(`<text class="lbl-col" x="${(x + w / 2).toFixed(1)}" y="${H - M.b + 16}" text-anchor="middle">${U.esc(short.length * 6.3 > w ? short.slice(0, Math.max(2, Math.floor(w / 6.3) - 1)) + "…" : short)}</text><text class="lbl-n" x="${(x + w / 2).toFixed(1)}" y="${H - M.b + 32}" text-anchor="middle">${sCount[s]}</text>`);
+      x += w + gap;
+    }
+    document.getElementById("svg").innerHTML = `<text class="lbl-col" x="${M.l}" y="16">${metric === "n" ? "share of accounts in sector" : "open roles on pulled boards (column height = sector total)"}</text>` + svg.join("") + labels.join("") + `<text class="lbl-col" x="${M.l}" y="${H - 8}">${rows.length} of ${D.companies.length} companies with a detected ${axis === "ats_vendor" ? "ATS" : "HRIS"} · sectors ordered by count</text>`;
+    document.getElementById("legend").innerHTML = [...topV.map((v, i) => `<span><i style="background:${PAL[i]}"></i>${U.esc(U.vendorName(v))} · ${vCount[v]}</span>`), `<span><i style="background:${OTHER}"></i>Other · ${vendors.slice(7).reduce((a, v) => a + vCount[v], 0)}</span>`].join("");
+    document.getElementById("desc").textContent = `${axis === "ats_vendor" ? "ATS" : "HRIS / payroll"} · ${rows.length} accounts · ranked for ${P.short}`;
+    document.querySelectorAll(".seg").forEach((r) => {
+      r.addEventListener("mousemove", (e) => { const c = cell[r.dataset.id]; U.showTip(`<b>${U.esc(c.v === "other" ? "Other vendors" : U.vendorName(c.v))} × ${U.esc(c.s)}</b><br/>${c.n} accounts · ${c.roles.toLocaleString()} open roles<br/><span style="color:#9b9283">top: ${c.cos.slice(0, 3).map((x) => U.esc(x.name)).join(", ")}</span><br/><span style="color:#5e574d">click to list</span>`, e.clientX, e.clientY); });
+      r.addEventListener("mouseleave", U.hideTip);
+      r.addEventListener("click", () => { sel = r.dataset.id; render(); });
+    });
+    const list = document.getElementById("list");
+    if (sel && cell[sel]) {
+      const c = cell[sel];
+      const ranked = c.cos.map((co) => ({ co, score: U.companyScore(co, P), lead: U.scoredSignals(co, P)[0] })).sort((a, b) => b.score - a.score || a.co.rank - b.co.rank);
+      document.getElementById("sel-desc").textContent = `${c.v === "other" ? "Other vendors" : U.vendorName(c.v)} × ${c.s} · ${ranked.length} accounts`;
+      list.innerHTML = ranked.map((r) => `<div class="row"><span class="r">${r.co.rank}</span><span class="co">${U.esc(r.co.name)}</span><span style="color:var(--muted)">${U.esc(L.stateCode(r.co.hq_state))}</span><span class="num" style="color:var(--muted)">${r.co.open_roles != null ? U.fmtNum(r.co.open_roles) : "–"}</span><span class="t" title="${r.lead ? U.esc(r.lead.title) : ""}">${r.lead ? U.esc(r.lead.title) : "no ranked trigger"}</span><span class="sc">${r.score}</span></div>`).join("");
+    } else { document.getElementById("sel-desc").textContent = "click a block"; list.innerHTML = `<div class="read">Click any block above. You get the accounts in that vendor × sector cell, ranked for your profile, with the lead trigger for each.</div>`; }
+  }
+  window.addEventListener("hrt:profile", render);
+  render();
+})();
+</script>

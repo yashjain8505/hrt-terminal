@@ -1,0 +1,164 @@
+<title>HRT Situation Room</title>
+<style>
+  body{overflow:hidden}
+  .stage{position:fixed;inset:34px 0 0 0;display:grid;grid-template-columns:300px 1fr 300px;grid-template-rows:1fr auto;gap:0}
+  .hud{background:rgba(7,6,5,.86);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;backdrop-filter:blur(2px)}
+  .hud.right{border-right:0;border-left:1px solid var(--line)}
+  #globe{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 60%,#120d05 0%,#070605 55%,#000 100%)}
+  #globe canvas{display:block}
+  .wire{flex:1;overflow:auto;padding:0}
+  .ev{padding:8px 12px;border-bottom:1px solid #191612;cursor:pointer;display:grid;grid-template-columns:8px 1fr auto;column-gap:8px;row-gap:2px;align-items:start}
+  .ev:hover{background:#141210}
+  .ev.now{background:var(--amber);color:#000}
+  .ev .d{grid-column:2;font-size:10px;color:var(--muted)}.ev.now .d{color:#000}
+  .ev .n{grid-column:2;font-weight:600}
+  .ev .t{grid-column:2/4;font-family:var(--sans);font-size:12px;color:var(--muted)}.ev.now .t{color:#111}
+  .ev .s{grid-column:3;grid-row:1;color:var(--amber)}.ev.now .s{color:#000}
+  .ev .dot{grid-column:1;grid-row:1/4;width:8px;height:8px;border-radius:50%;margin-top:5px}
+  .ctrl{display:flex;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);font-size:11px}
+  .ctrl input[type=range]{flex:1;accent-color:var(--amber);height:2px}
+  .foot{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:6px 12px;border-top:1px solid var(--line);background:#050403;font-size:11px}
+  .foot .chips{display:flex;gap:6px}
+  .leg{display:flex;gap:14px;margin-left:auto;color:var(--muted)}
+  .leg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .now{padding:12px}
+  .now .co{font-size:19px;font-weight:700;color:var(--amber);line-height:1.15;cursor:pointer}
+  .now .co:hover{text-decoration:underline}
+  .now .ti{font-family:var(--sans);font-size:13px;margin:6px 0}
+  .now .meta{color:var(--muted);font-size:11px}
+  .why{font-family:var(--sans);font-size:12.5px;color:var(--ink);border-left:2px solid var(--amber);padding-left:8px;margin-top:8px}
+  .top{flex:1;overflow:auto}
+  .top .row{display:grid;grid-template-columns:8px 34px 1fr auto;gap:8px;padding:5px 12px;border-bottom:1px solid #191612;cursor:pointer;align-items:center}
+  .top .row:hover{background:#141210}
+  .top .row i{width:8px;height:8px;border-radius:50%}
+  .top .row .r{color:var(--dim);text-align:right}
+  .top .row .sc{color:var(--amber)}
+  .hudtitle{padding:6px 12px;border-bottom:1px solid var(--line);color:var(--amber);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between}
+  .hudtitle span{color:var(--muted);letter-spacing:0;text-transform:none}
+  .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 3px)}
+  .reticle{position:absolute;left:50%;top:50%;width:220px;height:220px;margin:-110px 0 0 -110px;border:1px solid rgba(255,160,40,.12);border-radius:50%;pointer-events:none}
+  .reticle:after{content:"";position:absolute;inset:40px;border:1px dashed rgba(255,160,40,.14);border-radius:50%}
+  .gl-tip{font-family:var(--mono);font-size:11px;background:#000;border:1px solid #3b342d;padding:6px 8px;color:#efe9dc}
+  .gl-tip b{color:#ffa028}
+  @media (max-width:980px){.stage{grid-template-columns:1fr;grid-template-rows:280px 1fr auto auto}.hud{max-height:260px}}
+</style>
+<script src="hrt-lib.js"></script>
+<script src="data.js"></script>
+<script src="hrt-ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js"></script>
+<div class="stage" id="stage">
+  <aside class="hud">
+    <div class="hudtitle">Wire · 180-day replay <span id="wire-count"></span></div>
+    <div class="ctrl"><button class="kbd" id="play">❚❚ PAUSE</button><button class="kbd" id="prev">◀</button><button class="kbd" id="next">▶</button><input type="range" id="scrub" min="0" max="1" value="0"><span id="cur-date" style="color:var(--amber)"></span></div>
+    <div class="wire" id="wire"></div>
+  </aside>
+  <div id="globe"><div class="scan"></div><div class="reticle"></div></div>
+  <aside class="hud right">
+    <div class="hudtitle">Now playing</div>
+    <div class="now" id="now"></div>
+    <div class="hudtitle">Top accounts <span id="prof-name"></span></div>
+    <div class="top" id="top"></div>
+  </aside>
+  <div class="foot">
+    <span class="lbl">Mode</span>
+    <div class="chips" id="modes"></div>
+    <span class="lbl" style="margin-left:10px">Layers</span>
+    <div class="chips"><button class="kbd on" data-layer="arcs">arcs</button><button class="kbd on" data-layer="labels">labels</button><button class="kbd on" data-layer="rings">rings</button></div>
+    <div class="leg"><span><i style="background:#3ddc84"></i>hiring-led</span><span><i style="background:#5cc8ff"></i>stack-led</span><span><i style="background:#c48bff"></i>filing-led</span><span><i style="background:#ff5d5d"></i>layoff / restructuring</span><span style="color:var(--dim)">height = your score · arcs = countries they hire in</span></div>
+  </div>
+</div>
+<script>
+(function(){
+  const U = window.HRTUI, L = U.L, D = U.D;
+  U.bar("SITUATION ROOM");
+  const stage = document.getElementById("stage");
+  const el = document.getElementById("globe");
+  const MODES = [["ALL","All signals"],["HIRING","Hiring"],["RISK","Layoffs & restructuring"],["STACK","Stack"],["FILINGS","Filings"]];
+  let mode = "ALL", layers = { arcs: true, labels: true, rings: true }, idx = 0, playing = true, P = U.profile();
+  let points = [], arcs = [], evs = [], timer = null;
+  const modesEl = document.getElementById("modes");
+  modesEl.innerHTML = MODES.map(([k,l]) => `<button class="kbd ${k===mode?"on":""}" data-mode="${k}">${l}</button>`).join("");
+  modesEl.addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (!b) return; mode = b.dataset.mode; [...modesEl.children].forEach((x) => x.classList.toggle("on", x.dataset.mode === mode)); rebuild(); });
+  document.querySelectorAll("[data-layer]").forEach((b) => b.addEventListener("click", () => { layers[b.dataset.layer] = !layers[b.dataset.layer]; b.classList.toggle("on", layers[b.dataset.layer]); paint(); }));
+
+  const g = Globe()(el)
+    .backgroundColor("rgba(0,0,0,0)")
+    .globeImageUrl("earth-night.jpg")
+    .showAtmosphere(true).atmosphereColor("#ffa028").atmosphereAltitude(0.16)
+    .pointLat("lat").pointLng("lng").pointsMerge(false)
+    .pointColor((d) => d.color).pointAltitude((d) => d.alt).pointRadius((d) => d.rad)
+    .pointLabel((d) => `<div class="gl-tip"><b>#${d.co.rank} ${U.esc(d.co.name)}</b><br/>${U.esc(d.hq)}<br/>ATS: ${U.esc(U.vendorName(d.co.ats_vendor))} · open roles: ${U.fmtNum(d.co.open_roles)}<br/>score <b>${d.score}</b> · ${U.esc(L.SIGNAL_LABEL[d.top] || "")}</div>`)
+    .onPointClick((d) => focusCompany(d.co))
+    .arcStartLat("startLat").arcStartLng("startLng").arcEndLat("endLat").arcEndLng("endLng")
+    .arcColor(() => ["rgba(255,160,40,.55)","rgba(92,200,255,.12)"]).arcStroke(0.22).arcDashLength(0.35).arcDashGap(0.9).arcDashAnimateTime(2600).arcAltitudeAutoScale(0.35)
+    .arcLabel((d) => `<div class="gl-tip">${U.esc(d.name)} → ${d.country}: ${d.count} open roles</div>`)
+    .ringLat("lat").ringLng("lng").ringColor((d) => (t) => d.color + Math.round((1 - t) * 255).toString(16).padStart(2, "0")).ringMaxRadius(3.2).ringPropagationSpeed(1.5).ringRepeatPeriod(900)
+    .labelLat("lat").labelLng("lng").labelText((d) => d.co.name.toUpperCase()).labelSize(0.5).labelDotRadius(0.2).labelColor(() => "rgba(255,189,99,.9)").labelResolution(2).labelAltitude(0.12);
+  function resize() { g.width(el.clientWidth).height(el.clientHeight); }
+  new ResizeObserver(resize).observe(el); resize();
+  setTimeout(() => { const c = g.controls(); c.autoRotate = true; c.autoRotateSpeed = 0.3; g.pointOfView({ lat: 38, lng: -96, altitude: 1.8 }, 0); }, 200);
+
+  function rebuild() {
+    P = U.profile();
+    document.getElementById("prof-name").textContent = P.short;
+    points = D.companies.filter((c) => c.lat != null).map((co) => {
+      const sigs = U.scoredSignals(co, P).filter((s) => mode === "ALL" || s.group === mode);
+      const score = Math.round(sigs.reduce((a, s) => a + s.score, 0) * 10) / 10;
+      const gs = {}; for (const s of sigs) gs[s.group] = (gs[s.group] || 0) + s.score;
+      const risk = (U.sigsByCo.get(co.id) || []).some((s) => s.type.startsWith("risk."));
+      const group = mode !== "ALL" ? mode : risk ? "RISK" : (Object.entries(gs).sort((a, b) => b[1] - a[1])[0] || ["NONE"])[0];
+      return { co, lat: co.lat, lng: co.lng, score, group, top: sigs[0] ? sigs[0].type : "", hq: [co.hq_city, co.hq_state].filter(Boolean).join(", "), color: U.GROUP_TEXT[group] || "#3b342d", alt: 0.004 + Math.min(0.12, score / 400), rad: 0.09 + Math.min(0.22, score / 220) };
+    });
+    const top = [...points].sort((a, b) => b.score - a.score);
+    arcs = [];
+    for (const p of top.slice(0, 45)) {
+      const sn = D.snapshots[p.co.id]; if (!sn) continue;
+      Object.entries(sn.countries || {}).filter(([k]) => k.length === 2 && k !== "US" && L.COUNTRY_LATLNG[k]).sort((a, b) => b[1] - a[1]).slice(0, 3)
+        .forEach(([k, n]) => { const ll = L.COUNTRY_LATLNG[k]; arcs.push({ name: p.co.name, startLat: p.lat, startLng: p.lng, endLat: ll[0], endLng: ll[1], country: k, count: n }); });
+    }
+    const all = U.events(P, 180).filter((e) => e.score >= 1.5 && (mode === "ALL" || e.group === mode));
+    const perDay = {}; evs = all.sort((a, b) => b.score - a.score).filter((e) => { perDay[e.date] = (perDay[e.date] || 0) + 1; return perDay[e.date] <= 12; }).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : b.score - a.score));
+    document.getElementById("scrub").max = Math.max(0, evs.length - 1);
+    document.getElementById("wire-count").textContent = evs.length + " events";
+    idx = Math.max(0, evs.length - 40);
+    document.getElementById("top").innerHTML = top.slice(0, 22).map((p) => `<div class="row" data-slug="${p.co.slug}"><i style="background:${p.color}"></i><span class="r">${p.co.rank}</span><span>${U.esc(p.co.name)}</span><span class="sc">${p.score}</span></div>`).join("");
+    document.getElementById("top").querySelectorAll(".row").forEach((r) => r.addEventListener("click", () => { const co = D.companies.find((c) => c.slug === r.dataset.slug); focusCompany(co); }));
+    paint(); step(0);
+  }
+  function paint() {
+    g.pointsData(points).arcsData(layers.arcs ? arcs : []).labelsData(layers.labels ? [...points].sort((a, b) => b.score - a.score).slice(0, 18) : []);
+    ringsNow();
+  }
+  function ringsNow() { const win = evs.slice(Math.max(0, idx - 6), idx + 1).map((e) => ({ lat: e.co.lat, lng: e.co.lng, color: U.GROUP_TEXT[e.group] || "#ffffff" })); g.ringsData(layers.rings ? win : []); }
+  function focusCompany(co) { if (!co || co.lat == null) return; g.pointOfView({ lat: co.lat, lng: co.lng, altitude: 1.1 }, 900); const p = points.find((x) => x.co.id === co.id); renderNow({ co, date: "", group: p ? p.group : "STACK", title: p && p.top ? L.SIGNAL_LABEL[p.top] : "", score: p ? p.score : 0, strength: 0, url: co.ats_board_url || co.careers_url }, true); }
+  function step(delta) {
+    if (!evs.length) { document.getElementById("wire").innerHTML = '<div class="ev"><span class="t">No dated events in this mode.</span></div>'; return; }
+    idx = (idx + delta + evs.length) % evs.length;
+    const e = evs[idx];
+    document.getElementById("scrub").value = idx; document.getElementById("cur-date").textContent = e.date;
+    const recent = evs.slice(Math.max(0, idx - 11), idx + 1).reverse();
+    document.getElementById("wire").innerHTML = recent.map((x, i) => `<div class="ev ${i === 0 ? "now" : ""}" data-slug="${x.co.slug}"><span class="dot" style="background:${i === 0 ? "#000" : U.GROUP_TEXT[x.group]}"></span><span class="d">${x.date}</span><span class="s">${x.score.toFixed(1)}</span><span class="n">${U.esc(x.co.name)}</span><span class="t">${U.esc(x.title)}</span></div>`).join("");
+    document.getElementById("wire").querySelectorAll(".ev").forEach((r) => r.addEventListener("click", () => focusCompany(D.companies.find((c) => c.slug === r.dataset.slug))));
+    g.pointOfView({ lat: e.co.lat, lng: e.co.lng, altitude: 1.55 }, 1200);
+    ringsNow(); renderNow(e, false);
+  }
+  function renderNow(e, manual) {
+    const sig = U.scoredSignals(e.co, P)[0];
+    const why = sig ? L.whyNow(sig, P, e.co) : "";
+    document.getElementById("now").innerHTML = `<div class="meta">${e.date || "current state"} · <span style="color:${U.GROUP_TEXT[e.group]}">${e.group}</span> · #${e.co.rank} · ${U.esc(e.co.sector || "")}</div>
+      <div class="co" data-slug="${e.co.slug}">${U.esc(e.co.name)}</div>
+      <div class="ti">${U.esc(e.title)}</div>
+      <div class="meta">ATS ${U.esc(U.vendorName(e.co.ats_vendor))} · ${U.fmtNum(e.co.employees)} employees · ${e.co.open_roles != null ? U.fmtNum(e.co.open_roles) + " open roles" : "board not pulled"}${e.strength ? " · strength " + e.strength + "/5" : ""} · score <b style="color:var(--amber)">${Number(e.score).toFixed(1)}</b></div>
+      ${why ? `<div class="why">${U.esc(why)}</div>` : ""}
+      <div style="margin-top:10px;display:flex;gap:6px">${e.url ? `<a class="kbd" target="_blank" href="${U.esc(e.url)}">PROOF ↗</a>` : ""}${e.co.careers_url ? `<a class="kbd" target="_blank" href="${U.esc(e.co.careers_url)}">CAREERS ↗</a>` : ""}</div>`;
+  }
+  document.getElementById("play").addEventListener("click", (ev) => { playing = !playing; ev.target.textContent = playing ? "❚❚ PAUSE" : "▶ PLAY"; });
+  document.getElementById("prev").addEventListener("click", () => { playing = false; document.getElementById("play").textContent = "▶ PLAY"; step(-1); });
+  document.getElementById("next").addEventListener("click", () => { playing = false; document.getElementById("play").textContent = "▶ PLAY"; step(1); });
+  document.getElementById("scrub").addEventListener("input", (ev) => { playing = false; document.getElementById("play").textContent = "▶ PLAY"; idx = Number(ev.target.value); step(0); });
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  timer = setInterval(() => { if (playing && !reduce) step(1); }, 2400);
+  window.addEventListener("hrt:profile", rebuild);
+  rebuild();
+})();
+</script>

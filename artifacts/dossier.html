@@ -1,0 +1,133 @@
+<title>HRT Account Dossier</title>
+<style>
+  .wrap{padding:8px;display:grid;gap:8px;max-width:1500px;margin:0 auto}
+  .tabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-bottom:1px solid var(--line);background:#050403;align-items:center}
+  .tab{white-space:nowrap;padding:4px 10px;border:1px solid var(--line);color:var(--muted);cursor:pointer;font-size:11px}
+  .tab.on{background:var(--amber);color:#000;border-color:var(--amber);font-weight:600}
+  .tab:hover:not(.on){color:var(--amber);border-color:var(--amber)}
+  .tabs input{margin-left:auto;background:#000;border:1px solid var(--line2);color:var(--ink);font:inherit;padding:4px 8px;min-width:220px}
+  .head{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:14px 18px}
+  .gauge{width:132px;height:132px;position:relative}
+  .gauge svg{width:100%;height:100%}
+  .gauge .v{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .v b{font-size:30px;color:var(--amber);line-height:1}
+  .gauge .v span{font-size:9.5px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+  h1{font-size:28px;margin:0;color:var(--amber);line-height:1.05;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin-top:4px}
+  .facts{display:grid;grid-template-columns:repeat(4,auto);gap:4px 22px;margin-top:10px}
+  .facts div{font-size:11px;color:var(--muted)}.facts div b{display:block;color:var(--ink);font-size:14px;font-weight:600}
+  .headline{font-family:var(--sans);font-size:15px;max-width:60ch;color:var(--ink);border-left:3px solid var(--amber);padding-left:12px}
+  .grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px}
+  @media (max-width:1100px){.grid{grid-template-columns:1fr}}
+  .bars{padding:10px 12px}
+  .bar{display:grid;grid-template-columns:150px 1fr 44px;gap:10px;align-items:center;padding:4px 0;cursor:pointer}
+  .bar:hover .lab{color:var(--amber)}
+  .bar .lab{font-size:11px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .trk{height:12px;background:#151210;position:relative}
+  .bar .trk i{position:absolute;left:0;top:0;bottom:0;border-radius:0 3px 3px 0}
+  .bar .val{font-size:11px;color:var(--muted);text-align:right}
+  .bar .why{grid-column:1/4;font-family:var(--sans);font-size:12px;color:var(--muted);display:none;padding:2px 0 6px}
+  .bar.open .why{display:block}
+  .stack{padding:12px;display:grid;gap:10px}
+  .layer{border:1px solid var(--line);padding:8px 10px;position:relative}
+  .layer:before{content:attr(data-l);position:absolute;top:-7px;left:8px;background:var(--panel);padding:0 4px;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .layer .v{font-weight:600}
+  .layer .a{font-family:var(--sans);font-size:12px;color:var(--muted);margin-top:4px}
+  .layer.none{border-style:dashed;color:var(--dim)}
+  .arrow{text-align:center;color:var(--dim);font-size:11px;margin:-6px 0}
+  .say{padding:12px;display:grid;gap:10px}
+  .bubble{font-family:var(--sans);font-size:13px;line-height:1.5;padding:10px 12px;border:1px solid var(--line);background:#0b0a08;max-width:100%}
+  .bubble.me{border-color:var(--amberdeep);background:#151007}
+  .bubble .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between}
+  .risk{background:#2a0f0f;border:1px solid var(--risk);color:#ffb3b3;padding:8px 10px;font-family:var(--sans);font-size:12px}
+  .ladder{display:grid;gap:4px;padding:10px 12px}
+  .ladder a{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;padding:5px 8px;border:1px solid var(--line);color:var(--ink);font-size:11.5px}
+  .ladder a:hover{border-color:var(--amber);color:var(--amber)}
+  .ladder a span:first-child{color:var(--dim)}
+  .ladder a span:last-child{color:var(--dim);font-size:10px}
+  .roles{padding:6px 12px 10px}
+  .roles div{display:grid;grid-template-columns:120px 1fr auto;gap:8px;padding:3px 0;border-bottom:1px solid #191612;font-size:11.5px}
+  .roles div span:last-child{color:var(--dim)}
+</style>
+<script src="hrt-lib.js"></script>
+<script src="data.js"></script>
+<script src="hrt-ui.js"></script>
+<div class="tabs" id="tabs"></div>
+<div class="wrap" id="wrap"></div>
+<script>
+(function(){
+  const U = window.HRTUI, L = U.L, D = U.D;
+  U.bar("ACCOUNT DOSSIER");
+  let slug = new URLSearchParams(location.search).get("a") || null;
+  const tabs = document.getElementById("tabs"), wrap = document.getElementById("wrap");
+  function render() {
+    const P = U.profile();
+    const top = U.ranked(P).slice(0, 8);
+    if (!slug || !D.companies.some((c) => c.slug === slug)) slug = top[0].co.slug;
+    tabs.innerHTML = top.map((r) => `<div class="tab ${r.co.slug === slug ? "on" : ""}" data-slug="${r.co.slug}">#${r.co.rank} ${U.esc(r.co.name)} <span style="opacity:.7">${r.score}</span></div>`).join("") + `<input id="find" list="cos" placeholder="any of the 498: type a name" /><datalist id="cos">${D.companies.map((c) => `<option value="${U.esc(c.name)}">`).join("")}</datalist>`;
+    tabs.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => { slug = t.dataset.slug; render(); }));
+    const find = tabs.querySelector("#find");
+    find.addEventListener("change", () => { const c = D.companies.find((x) => x.name.toLowerCase() === find.value.trim().toLowerCase()); if (c) { slug = c.slug; render(); } });
+    const co = D.companies.find((c) => c.slug === slug);
+    const sigs = U.scoredSignals(co, P);
+    const card = U.card(co, P);
+    const total = Math.round(sigs.reduce((a, s) => a + s.score, 0) * 10) / 10;
+    const max = Math.max(60, ...U.ranked(P).slice(0, 1).map((r) => r.score));
+    const pct = Math.min(1, total / max);
+    const R = 56, C = 2 * Math.PI * R;
+    const sn = D.snapshots[co.id];
+    const jobs = (U.jobsByCo.get(co.id) || []).slice(0, 14);
+    const stackKeys = [...new Set([co.ats_vendor, co.hris_vendor, ...(co.stack_json ? JSON.parse(co.stack_json) : [])].filter(Boolean))];
+    const byCat = { crm: [], ats: [], hris: [], tool: [] };
+    for (const k of stackKeys) { const v = L.VENDOR_BY_KEY[k]; const cat = v ? v.category : "ats"; (byCat[cat] || byCat.ats).push(k); }
+    const tools = sn ? Object.entries(sn.tools || {}).sort((a, b) => b[1] - a[1]).slice(0, 6) : [];
+    const layer = (label, keys, empty) => keys.length ? `<div class="layer" data-l="${label}">${keys.map((k) => `<div class="v">${U.esc(U.vendorName(k))}</div>${L.incumbentAngle(k, P) ? `<div class="a">${U.esc(L.incumbentAngle(k, P))}</div>` : ""}`).join("")}</div>` : `<div class="layer none" data-l="${label}">${empty}</div>`;
+    wrap.innerHTML = `
+      <section class="panel head">
+        <div class="gauge"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="${R}" fill="none" stroke="#1a1714" stroke-width="10"/><circle cx="66" cy="66" r="${R}" fill="none" stroke="#ffa028" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(C * pct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 66 66)"/></svg><div class="v"><b>${total}</b><span>score · ${P.short}</span></div></div>
+        <div>
+          <div class="lbl">Fortune 500 #${co.rank} ${co.rank_change ? (co.rank_change > 0 ? '<span style="color:var(--hiring-t)">▲' + co.rank_change + "</span>" : '<span style="color:var(--risk-t)">▼' + Math.abs(co.rank_change) + "</span>") : ""} ${co.ticker ? '<span style="color:var(--stack-t)">' + co.ticker + "</span>" : ""}</div>
+          <h1>${U.esc(co.name)}</h1>
+          <div class="sub">${U.esc(co.sector || "")} · ${U.esc(co.industry || "")} · ${U.esc(co.hq_city || "")}, ${U.esc(L.stateCode(co.hq_state))} · <a href="https://${U.esc(co.domain)}" target="_blank" style="color:var(--stack-t)">${U.esc(co.domain || "")}</a></div>
+          <div class="facts"><div>Employees<b>${U.fmtNum(co.employees)}</b></div><div>Revenue<b>${U.fmtMoney(co.revenue_m)}</b></div><div>Open roles<b>${co.open_roles != null ? U.fmtNum(co.open_roles) : "–"}</b></div><div>HR roles found<b>${(U.jobsByCo.get(co.id) || []).length}</b></div></div>
+        </div>
+        <div class="headline">${U.esc(card.headline)}<div style="font-size:11px;color:var(--muted);margin-top:6px;font-family:var(--mono)">${U.esc(card.footprint)}</div></div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <div class="ptitle"><span><span class="k">1</span>Why the score · click a bar</span><span class="r">${sigs.length} signals, ranked for ${U.esc(P.name)}</span></div>
+          <div class="bars">${sigs.slice(0, 14).map((s) => `<div class="bar" data-url="${U.esc(s.source_url || "")}"><span class="lab" title="${U.esc(s.title)}">${U.esc(s.title)}</span><span class="trk"><i style="width:${Math.max(3, (s.score / 5) * 100)}%;background:${U.GROUP_HEX[s.group]}"></i></span><span class="val">${s.score.toFixed(1)}</span><div class="why">${U.esc(L.whyNow(s, P, co))} ${s.source_url ? `<a href="${U.esc(s.source_url)}" target="_blank" style="color:var(--stack-t)">proof ↗</a>` : ""}</div></div>`).join("")}</div>
+          ${sn ? `<div class="ptitle" style="border-top:1px solid var(--line)"><span>Open HR-function roles</span><span class="r">${jobs.length} shown</span></div><div class="roles">${jobs.map((j) => `<div><span class="badge b-HIRING">${U.esc((L.BUCKET_LABEL[j.bucket] || j.bucket).split(" /")[0])}</span><span>${j.url ? `<a href="${U.esc(j.url)}" target="_blank">${U.esc(j.title)} ↗</a>` : U.esc(j.title)}</span><span>${U.esc(j.location || "")}</span></div>`).join("")}</div>` : ""}
+        </section>
+        <section class="panel">
+          <div class="ptitle"><span><span class="k">2</span>Stack map · where you fit</span></div>
+          <div class="stack">
+            ${layer("Career site layer", byCat.crm, "No separate career-site vendor detected")}
+            <div class="arrow">▼ candidates flow into</div>
+            ${layer("Applicant tracking", byCat.ats.length ? byCat.ats : (byCat.hris.length ? [] : []), byCat.hris.length ? "Recruiting module of the HRIS below" : "ATS not detected")}
+            <div class="arrow">▼ hires flow into</div>
+            ${layer("HRIS / payroll of record", byCat.hris, "HRIS not visible from the careers site")}
+            ${byCat.tool.length ? layer("Point tools on the careers site", byCat.tool, "") : ""}
+            <div class="layer ${tools.length ? "" : "none"}" data-l="Named in job descriptions">${tools.length ? tools.map(([k, n]) => `<span class="badge b-HIRING" style="margin:2px 4px 2px 0">${U.esc((L.JD_TOOLS.find((t) => t.key === k) || { name: k }).name)} · ${n}</span>`).join("") : "No HR tools named in the pulled job posts"}</div>
+          </div>
+          <div class="ptitle" style="border-top:1px solid var(--line)"><span>Who to find</span><span class="r">titles, in order</span></div>
+          <div class="ladder">${card.buyers.map((b, i) => `<a href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent('"' + b + '" ' + co.name)}" target="_blank"><span>${i + 1}</span><span>${U.esc(b)}</span><span>search ↗</span></a>`).join("")}</div>
+        </section>
+        <section class="panel">
+          <div class="ptitle"><span><span class="k">3</span>Say this</span><span class="r">first touch + first call</span></div>
+          <div class="say">
+            ${card.risks.length ? `<div class="risk">⚠ ${U.esc(card.risks.join(" · "))}. Lead with cost, consolidation and compliance, not growth.</div>` : ""}
+            <div class="bubble me"><div class="who"><span>You · email, day 0</span><button class="kbd" data-copy="${U.esc(card.opening)}">COPY</button></div>${U.esc(card.opening)}</div>
+            <div class="bubble"><div class="who"><span>Them · likely reply</span></div>"What do you know about what we're running?"</div>
+            <div class="bubble me"><div class="who"><span>You · the angle</span></div>${U.esc(card.stack.find((s) => s.angle) ? card.stack.find((s) => s.angle).angle : "We start from what your job posts and careers site already tell us, then ask about the gaps.")}</div>
+            <div class="bubble"><div class="who"><span>On the call · ask</span></div><ol style="margin:0;padding-left:18px">${card.questions.map((q) => `<li>${U.esc(q)}</li>`).join("")}</ol></div>
+          </div>
+        </section>
+      </div>`;
+    wrap.querySelectorAll(".bar").forEach((b) => b.addEventListener("click", () => b.classList.toggle("open")));
+    wrap.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => { navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = "COPIED"; setTimeout(() => (b.textContent = "COPY"), 1200); }); }));
+  }
+  window.addEventListener("hrt:profile", render);
+  render();
+})();
+</script>

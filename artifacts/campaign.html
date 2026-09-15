@@ -1,0 +1,112 @@
+<title>HRT Campaign Funnel</title>
+<style>
+  .wrap{padding:8px;display:grid;gap:8px;max-width:1600px;margin:0 auto}
+  .filters{display:flex;flex-wrap:wrap;gap:14px;align-items:end;padding:10px 12px}
+  .filters label{display:grid;gap:3px}
+  .filters select,.filters input{background:#000;border:1px solid var(--line2);color:var(--ink);font:inherit;padding:4px 6px;min-width:150px}
+  .funnel{padding:12px;display:grid;gap:6px}
+  .stage{display:grid;grid-template-columns:190px 1fr 90px;gap:12px;align-items:center}
+  .stage .n{font-size:11px;color:var(--muted)}
+  .stage .n b{display:block;color:var(--ink);font-size:12px;font-weight:600}
+  .stage .trk{height:26px;background:#141210;position:relative}
+  .stage .trk i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--amberdeep),var(--amber));border-radius:0 3px 3px 0;transition:width .35s ease}
+  .stage .trk span{position:absolute;left:8px;top:0;bottom:0;display:flex;align-items:center;font-weight:700;color:#000;mix-blend-mode:normal}
+  .stage .drop{font-size:11px;color:var(--risk-t);text-align:right}
+  .stage.final .trk i{background:var(--hiring)}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  @media (max-width:1000px){.board{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;min-height:0}
+  .col .tpl{font-family:var(--sans);font-size:12px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:pre-wrap;background:#0b0a08}
+  .col .cards{display:grid;gap:6px;padding:8px;max-height:60vh;overflow:auto}
+  .card{border:1px solid var(--line);padding:8px 10px;background:#0b0a08}
+  .card .h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
+  .card .h b{color:var(--ink)}
+  .card .h span{color:var(--amber);font-size:11px}
+  .card .m{font-size:10.5px;color:var(--dim);margin-bottom:6px}
+  .card .txt{font-family:var(--sans);font-size:12.5px;line-height:1.45;color:var(--ink)}
+  .card .txt .mf{color:var(--amber2)}
+  .card .act{display:flex;gap:6px;margin-top:6px}
+  .toolbar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--line)}
+  textarea.csv{width:100%;height:120px;background:#000;color:var(--muted);border:1px solid var(--line);font:11px var(--mono);padding:8px;display:none}
+  textarea.csv.show{display:block}
+</style>
+<script src="hrt-lib.js"></script>
+<script src="data.js"></script>
+<script src="hrt-ui.js"></script>
+<div class="wrap">
+  <section class="panel">
+    <div class="ptitle"><span><span class="k">1</span>Segment</span><span class="r" id="seg-desc"></span></div>
+    <div class="filters" id="filters"></div>
+  </section>
+  <section class="panel">
+    <div class="ptitle"><span><span class="k">2</span>Funnel · where accounts drop out</span><span class="r">Fortune 500 → your list</span></div>
+    <div class="funnel" id="funnel"></div>
+  </section>
+  <section class="panel">
+    <div class="ptitle"><span><span class="k">3</span>Sequence board · three touches, personalised per account</span><span class="r" id="board-desc"></span></div>
+    <div class="board" id="board"></div>
+    <div class="toolbar"><button class="kbd" id="copycsv">COPY CSV FOR YOUR SEQUENCER</button><button class="kbd" id="showcsv">SHOW CSV</button><span style="color:var(--dim);font-size:11px">27 columns: triggers with proof URLs, buyer titles, opening line, incumbent angle. Add emails in Outreach, Salesloft or Apollo.</span></div>
+    <textarea class="csv" id="csv" readonly></textarea>
+  </section>
+</div>
+<script>
+(function(){
+  const U = window.HRTUI, L = U.L, D = U.D;
+  U.bar("CAMPAIGN FUNNEL");
+  const TYPES = ["", "hiring.people_exec_open", "hiring.hr_leader_open", "hiring.recruiting_open", "hiring.hris_open", "hiring.payroll_open", "hiring.comp_benefits_open", "hiring.learning_open", "hiring.intl_footprint", "exec.officer_change", "corp.acquisition", "risk.restructuring", "risk.warn_notice", "fortune.newcomer"];
+  const vendors = Object.values(L.VENDOR_BY_KEY).filter((v) => v.category === "ats" || v.category === "hris").map((v) => v.key);
+  const sectors = [...new Set(D.companies.map((c) => c.sector).filter(Boolean))].sort();
+  const states = [...new Set(D.companies.map((c) => c.hq_state).filter(Boolean))].sort();
+  const f = { vendor: "workday", sector: "", state: "", minRoles: "", type: "" };
+  const fe = document.getElementById("filters");
+  fe.innerHTML = `
+    <label><span class="lbl">Incumbent vendor</span><select data-f="vendor"><option value="">any</option>${vendors.map((v) => `<option value="${v}" ${v === f.vendor ? "selected" : ""}>${U.esc(U.vendorName(v))}</option>`).join("")}</select></label>
+    <label><span class="lbl">Sector</span><select data-f="sector"><option value="">any</option>${sectors.map((s) => `<option value="${U.esc(s)}">${U.esc(s)}</option>`).join("")}</select></label>
+    <label><span class="lbl">HQ state</span><select data-f="state"><option value="">any</option>${states.map((s) => `<option value="${U.esc(s)}">${U.esc(s)}</option>`).join("")}</select></label>
+    <label><span class="lbl">Min open roles</span><input data-f="minRoles" placeholder="e.g. 500" inputmode="numeric"></label>
+    <label><span class="lbl">Must have trigger</span><select data-f="type"><option value="">any</option>${TYPES.filter(Boolean).map((t) => `<option value="${t}">${U.esc(L.SIGNAL_LABEL[t])}</option>`).join("")}</select></label>`;
+  fe.querySelectorAll("[data-f]").forEach((el) => el.addEventListener("change", () => { f[el.dataset.f] = el.value; render(); }));
+  let lines = [];
+  function stages(P) {
+    let list = D.companies.slice();
+    const out = [{ label: "Fortune 500 universe", sub: "2026 list", n: list.length }];
+    if (f.vendor) { list = list.filter((c) => c.ats_vendor === f.vendor || c.hris_vendor === f.vendor); out.push({ label: "Runs " + U.vendorName(f.vendor), sub: "ATS or HRIS detected", n: list.length }); }
+    if (f.sector) { list = list.filter((c) => c.sector === f.sector); out.push({ label: f.sector, sub: "sector", n: list.length }); }
+    if (f.state) { list = list.filter((c) => c.hq_state === f.state); out.push({ label: "HQ in " + f.state, sub: "state", n: list.length }); }
+    if (Number(f.minRoles)) { list = list.filter((c) => (c.open_roles || 0) >= Number(f.minRoles)); out.push({ label: "≥ " + Number(f.minRoles).toLocaleString() + " open roles", sub: "board pulled", n: list.length }); }
+    if (f.type) { list = list.filter((c) => (U.sigsByCo.get(c.id) || []).some((s) => s.type === f.type)); out.push({ label: L.SIGNAL_LABEL[f.type], sub: "trigger present", n: list.length }); }
+    const scored = list.map((co) => ({ co, score: U.companyScore(co, P) })).filter((x) => x.score > 0).sort((a, b) => b.score - a.score || a.co.rank - b.co.rank);
+    out.push({ label: "Ranked for " + P.short, sub: "score > 0", n: scored.length, final: true });
+    return { out, scored };
+  }
+  function mf(s) { return U.esc(s).replace(/\{\{(\w+)\}\}/g, '<span class="mf">{{$1}}</span>'); }
+  function render() {
+    const P = U.profile();
+    const { out, scored } = stages(P);
+    document.getElementById("seg-desc").textContent = [f.vendor ? U.vendorName(f.vendor) : "any vendor", f.sector || "any sector", f.state || "any state", f.minRoles ? "≥" + f.minRoles + " roles" : "", f.type ? L.SIGNAL_LABEL[f.type] : ""].filter(Boolean).join(" · ");
+    const max = out[0].n;
+    document.getElementById("funnel").innerHTML = out.map((s, i) => `<div class="stage ${s.final ? "final" : ""}"><div class="n"><b>${U.esc(s.label)}</b>${U.esc(s.sub)}</div><div class="trk"><i style="width:${Math.max(1.5, (100 * s.n) / max)}%"></i><span>${s.n}</span></div><div class="drop">${i ? "−" + (out[i - 1].n - s.n) : ""}</div></div>`).join("");
+    lines = scored.slice(0, 200).map(({ co, score }) => { const card = U.card(co, P); return { co, score, card }; });
+    const seq = L.sequenceTemplate(P);
+    const show = lines.slice(0, 12);
+    document.getElementById("board-desc").textContent = `${lines.length} accounts · showing top ${show.length}`;
+    const cols = [
+      { t: seq[0], body: (l) => l.card.opening + (l.card.triggers[0] && l.card.triggers[0].url ? "\n\nProof: " + l.card.triggers[0].url : "") },
+      { t: seq[1], body: (l) => `Hi {{first_name}}, saw ${l.card.triggers[0] ? l.card.triggers[0].title.toLowerCase() : "the news"} at ${l.co.name}. I work with ${P.buyer.toLowerCase()}s on ${P.sells.split(",")[0].trim()}. Would value connecting.` },
+      { t: seq[2], body: (l) => { const inc = l.co.ats_vendor || l.co.hris_vendor; const ang = l.card.stack.find((s) => s.angle); return `{{first_name}}, one more angle. You run ${U.vendorName(inc)} today. ${ang ? ang.angle : "We fit alongside it."}\n\nIf that is not a priority this quarter, tell me and I will stop.`; } },
+    ];
+    document.getElementById("board").innerHTML = cols.map((c, ci) => `<div class="panel col"><div class="ptitle"><span>${U.esc(c.t.step)}</span></div><div class="tpl">${c.t.subject ? "Subject: " + mf(c.t.subject) + "\n" : ""}${mf(c.t.body)}</div><div class="cards">${show.map((l) => `<div class="card"><div class="h"><b>#${l.co.rank} ${U.esc(l.co.name)}</b><span>${l.score}</span></div><div class="m">${U.esc(l.co.sector || "")} · ${U.esc(U.vendorName(l.co.ats_vendor || l.co.hris_vendor))} · find: ${U.esc(l.card.buyers[0])}</div><div class="txt">${mf(c.body(l))}</div><div class="act"><button class="kbd" data-copy="${U.esc(c.body(l))}">COPY</button>${ci === 0 && l.card.triggers[0] && l.card.triggers[0].url ? `<a class="kbd" target="_blank" href="${U.esc(l.card.triggers[0].url)}">PROOF ↗</a>` : ""}</div></div>`).join("")}</div></div>`).join("");
+    document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = "COPIED"; setTimeout(() => (b.textContent = "COPY"), 1200); })));
+    document.getElementById("csv").value = csv(lines);
+  }
+  function csv(ls) {
+    const cols = ["rank","company","domain","sector","hq_city","hq_state","employees","ats","hris","open_roles","score","headline","trigger_1","trigger_1_why","trigger_1_url","trigger_1_date","trigger_2","trigger_2_url","trigger_3","trigger_3_url","buyer_title_1","buyer_title_2","buyer_title_3","opening_line","incumbent","incumbent_angle","careers_url"];
+    const e = (v) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    return [cols.join(",")].concat(ls.map((l) => { const c = l.co, t = l.card.triggers, a = l.card.stack.find((s) => s.angle); return [c.rank, c.name, c.domain, c.sector, c.hq_city, L.stateCode(c.hq_state), c.employees, U.vendorName(c.ats_vendor), c.hris_vendor ? U.vendorName(c.hris_vendor) : "", c.open_roles, l.score, l.card.headline, t[0] && t[0].title, t[0] && t[0].why, t[0] && t[0].url, t[0] && t[0].date, t[1] && t[1].title, t[1] && t[1].url, t[2] && t[2].title, t[2] && t[2].url, l.card.buyers[0], l.card.buyers[1], l.card.buyers[2], l.card.opening, U.vendorName(c.ats_vendor || c.hris_vendor), a ? a.angle : "", c.careers_url].map(e).join(","); })).join("\n");
+  }
+  document.getElementById("copycsv").addEventListener("click", (ev) => navigator.clipboard.writeText(document.getElementById("csv").value).then(() => { ev.target.textContent = "COPIED " + lines.length + " ROWS"; setTimeout(() => (ev.target.textContent = "COPY CSV FOR YOUR SEQUENCER"), 1500); }));
+  document.getElementById("showcsv").addEventListener("click", () => document.getElementById("csv").classList.toggle("show"));
+  window.addEventListener("hrt:profile", render);
+  render();
+})();
+</script>

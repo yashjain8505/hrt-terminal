@@ -1,0 +1,102 @@
+<title>HRT Trigger Stream</title>
+<style>
+  .wrap{padding:8px;display:grid;gap:8px;max-width:1600px;margin:0 auto}
+  .ctl{display:flex;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid var(--line);font-size:11px;flex-wrap:wrap}
+  .chart{padding:8px 12px 0;position:relative}
+  svg{display:block;width:100%;height:auto}
+  .ax{font:10.5px var(--mono);fill:#9b9283}
+  .grid{stroke:#1c1916}
+  .area{opacity:.92}
+  .area:hover{opacity:1}
+  .xh{stroke:#ffa028;stroke-dasharray:3 3}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;padding:8px 12px 10px;font-size:11px;color:var(--muted)}
+  .legend span i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media (max-width:1000px){.two{grid-template-columns:1fr}}
+  .wire{max-height:52vh;overflow:auto}
+  .ev{display:grid;grid-template-columns:8px 78px 1fr auto;gap:10px;padding:6px 12px;border-bottom:1px solid #191612;align-items:start;font-size:11.5px}
+  .ev:hover{background:#141210}
+  .ev i{width:8px;height:8px;border-radius:50%;margin-top:5px}
+  .ev .d{color:var(--muted)}
+  .ev .n{font-weight:600}
+  .ev .t{font-family:var(--sans);color:var(--muted);font-size:12px}
+  .ev .a{display:flex;gap:4px;align-items:center}
+  .ev .sc{color:var(--amber);min-width:30px;text-align:right}
+  .note{font-family:var(--sans);font-size:12px;color:var(--dim);padding:0 12px 10px}
+</style>
+<script src="hrt-lib.js"></script>
+<script src="data.js"></script>
+<script src="hrt-ui.js"></script>
+<div class="wrap">
+  <section class="panel">
+    <div class="ptitle"><span><span class="k">1</span>Trigger stream · dated events per week, stacked by kind</span><span class="r" id="desc"></span></div>
+    <div class="ctl"><span class="lbl">Window</span><button class="kbd" data-days="90">90d</button><button class="kbd on" data-days="180">180d</button><button class="kbd" data-days="365">365d</button><span class="lbl" style="margin-left:12px">Min score</span><button class="kbd on" data-min="0">all</button><button class="kbd" data-min="2">≥2</button><button class="kbd" data-min="3">≥3</button><span style="margin-left:auto;color:var(--dim)">hover for the week · click a week to read its wire</span></div>
+    <div class="chart"><svg id="svg" viewBox="0 0 1400 360" role="img" aria-label="Weekly stacked area of triggers"></svg></div>
+    <div class="legend" id="legend"></div>
+    <div class="note">Role dates come from the job boards. Posts Workday only dates as "30+ days ago" are left out of the stream (they would all land on one week); the second run gives them real dates.</div>
+  </section>
+  <div class="two">
+    <section class="panel"><div class="ptitle"><span><span class="k">2</span>Selected week · wire</span><span class="r" id="week-desc">click a week</span></div><div class="wire" id="week"></div></section>
+    <section class="panel"><div class="ptitle"><span><span class="k">3</span>This week · act now</span><span class="r" id="now-desc"></span></div><div class="wire" id="now"></div></section>
+  </div>
+</div>
+<script>
+(function(){
+  const U = window.HRTUI, L = U.L, D = U.D;
+  U.bar("TRIGGER STREAM");
+  const LANES = [
+    { key: "exec", label: "People exec / leader roles", color: "#1fa862", text: "#3ddc84", match: (e) => e.type === "hiring.people_exec_open" || e.type === "hiring.hr_leader_open" },
+    { key: "corp", label: "Acquisitions closed", color: "#2b8fd0", text: "#5cc8ff", match: (e) => e.type === "corp.acquisition" },
+    { key: "roles", label: "Other HR-function roles", color: "#b8891a", text: "#ffd469", match: (e) => e.type.startsWith("hiring.") },
+    { key: "officer", label: "8-K officer changes", color: "#8f78d6", text: "#c48bff", match: (e) => e.type === "exec.officer_change" },
+    { key: "risk", label: "Restructuring / WARN", color: "#d24a4a", text: "#ff5d5d", match: (e) => e.type.startsWith("risk.") },
+  ];
+  let days = 180, min = 0, selWeek = null, weeks = [], evs = [];
+  document.querySelectorAll("[data-days]").forEach((b) => b.addEventListener("click", () => { days = Number(b.dataset.days); document.querySelectorAll("[data-days]").forEach((x) => x.classList.toggle("on", x === b)); selWeek = null; render(); }));
+  document.querySelectorAll("[data-min]").forEach((b) => b.addEventListener("click", () => { min = Number(b.dataset.min); document.querySelectorAll("[data-min]").forEach((x) => x.classList.toggle("on", x === b)); render(); }));
+  const lane = (e) => LANES.find((l) => l.match(e)) || LANES[3];
+  function evRow(e) { const l = lane(e); return `<div class="ev"><i style="background:${l.text}"></i><span class="d">${e.date}</span><span><span class="n">${U.esc(e.co.name)}</span><div class="t">${U.esc(e.title)} <span style="color:var(--dim)">· ${U.esc(L.SIGNAL_LABEL[e.type] || e.type)}</span></div></span><span class="a"><span class="sc">${e.score.toFixed(1)}</span>${e.url ? `<a class="kbd" target="_blank" href="${U.esc(e.url)}">PROOF</a>` : ""}</span></div>`; }
+  function render() {
+    const P = U.profile();
+    evs = U.events(P, days).filter((e) => e.score >= min && e.score > 0);
+    const end = new Date(); end.setHours(0, 0, 0, 0); const start = new Date(end.getTime() - days * 864e5);
+    const wk = (d) => Math.floor((new Date(d).getTime() - start.getTime()) / (7 * 864e5));
+    const nW = wk(end) + 1; weeks = [];
+    for (let i = 0; i < nW; i++) weeks.push({ i, start: new Date(start.getTime() + i * 7 * 864e5), counts: LANES.map(() => 0), evs: [] });
+    for (const e of evs) { const w = weeks[wk(e.date)]; if (!w) continue; w.evs.push(e); w.counts[LANES.indexOf(lane(e))]++; }
+    const W = 1400, H = 360, M = { t: 14, r: 16, b: 34, l: 44 };
+    const maxT = Math.max(1, ...weeks.map((w) => w.counts.reduce((a, b) => a + b, 0)));
+    const x = (i) => M.l + ((i + 0.5) / nW) * (W - M.l - M.r);
+    const y = (v) => H - M.b - (v / maxT) * (H - M.t - M.b);
+    let svg = "";
+    const ticks = 4; for (let t = 0; t <= ticks; t++) { const v = Math.round((maxT * t) / ticks); svg += `<line class="grid" x1="${M.l}" x2="${W - M.r}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${M.l - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`; }
+    const cum = weeks.map(() => 0);
+    LANES.forEach((l, li) => {
+      const top = weeks.map((w, i) => { cum[i] += w.counts[li]; return [x(i), y(cum[i])]; });
+      const bot = weeks.map((w, i) => [x(i), y(cum[i] - w.counts[li])]).reverse();
+      const path = "M" + top.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + "L" + bot.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + "Z";
+      svg += `<path class="area" d="${path}" fill="${l.color}" stroke="#0e0c0a" stroke-width="1"/>`;
+    });
+    weeks.forEach((w, i) => { if (i % 4 === 0 || i === nW - 1) svg += `<text class="ax" x="${x(i)}" y="${H - M.b + 16}" text-anchor="middle">${w.start.toISOString().slice(5, 10)}</text>`; });
+    const thisI = nW - 1; svg += `<line class="xh" x1="${x(thisI) - (W - M.l - M.r) / nW / 2}" x2="${x(thisI) - (W - M.l - M.r) / nW / 2}" y1="${M.t}" y2="${H - M.b}"/><text class="ax" x="${x(thisI) - (W - M.l - M.r) / nW / 2 + 4}" y="${M.t + 10}" fill="#ffa028">this week</text>`;
+    if (selWeek != null) svg += `<rect x="${x(selWeek) - (W - M.l - M.r) / nW / 2}" y="${M.t}" width="${(W - M.l - M.r) / nW}" height="${H - M.t - M.b}" fill="none" stroke="#ffa028"/>`;
+    svg += weeks.map((w, i) => `<rect data-w="${i}" x="${x(i) - (W - M.l - M.r) / nW / 2}" y="${M.t}" width="${(W - M.l - M.r) / nW}" height="${H - M.t - M.b}" fill="transparent" style="cursor:pointer"/>`).join("");
+    document.getElementById("svg").innerHTML = svg;
+    document.getElementById("legend").innerHTML = LANES.map((l, i) => `<span><i style="background:${l.color}"></i>${l.label} · ${weeks.reduce((a, w) => a + w.counts[i], 0)}</span>`).join("");
+    document.getElementById("desc").textContent = `${evs.length} events · ${nW} weeks · ranked for ${P.short}`;
+    document.querySelectorAll("[data-w]").forEach((r) => {
+      r.addEventListener("mousemove", (e) => { const w = weeks[Number(r.dataset.w)]; U.showTip(`<b>week of ${w.start.toISOString().slice(0, 10)}</b><br/>${LANES.map((l, i) => `<span style="color:${l.text}">●</span> ${l.label}: ${w.counts[i]}`).join("<br/>")}<br/><span style="color:#5e574d">${w.evs.length} events · click to read</span>`, e.clientX, e.clientY); });
+      r.addEventListener("mouseleave", U.hideTip);
+      r.addEventListener("click", () => { selWeek = Number(r.dataset.w); render(); });
+    });
+    const wsel = selWeek != null ? weeks[selWeek] : null;
+    document.getElementById("week-desc").textContent = wsel ? `week of ${wsel.start.toISOString().slice(0, 10)} · ${wsel.evs.length} events` : "click a week";
+    document.getElementById("week").innerHTML = wsel ? [...wsel.evs].sort((a, b) => b.score - a.score).slice(0, 120).map(evRow).join("") : `<div class="note" style="padding:12px">Click any week in the stream to read its events here, ranked for your profile, each with a proof link.</div>`;
+    const now = [...weeks[nW - 1].evs].sort((a, b) => b.score - a.score).slice(0, 120);
+    document.getElementById("now-desc").textContent = now.length + " events";
+    document.getElementById("now").innerHTML = now.map(evRow).join("") || `<div class="note" style="padding:12px">Nothing dated this week at this threshold.</div>`;
+  }
+  window.addEventListener("hrt:profile", render);
+  render();
+})();
+</script>
