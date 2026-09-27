@@ -6,14 +6,27 @@ HRT watches public job boards, SEC filings, layoff notices and the news for ever
 
 Universe today: the 2026 Fortune 500 (498 companies). Mid-market is next.
 
-## Run it
+**Live: https://yashjain8505.github.io/hrt-terminal/** — the full terminal, no install. Everything works except the CSV download button, which becomes "Copy CSV" (same columns, straight to your clipboard).
+
+## Run it locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The data ships in the repo, so nothing else is needed.
+Open http://localhost:3000. The data ships in the repo, so nothing else is needed. Running it locally adds the CSV download endpoint and lets you refresh the data.
+
+## The hosted copy
+
+`docs/` is a static build of the same page with a data snapshot baked in, served by GitHub Pages at the link above. Rebuild it after a data refresh:
+
+```bash
+npm run artifacts
+cp artifacts/room.html docs/index.html
+cp artifacts/{room.js,hrt-lib.js,data.js} docs/
+```
+(then re-point the globe.gl script tag in `docs/index.html` at the local `globe.gl.min.js`, commit and push)
 
 ## How to use it
 
