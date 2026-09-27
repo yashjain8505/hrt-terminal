@@ -48,7 +48,7 @@
     const parse = () => ta.value.split(/[\s,;]+/).map((x) => x.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "")).filter(Boolean);
     const upd = () => { const b = parse(); const hit = D.companies.filter((c) => c.domain && b.includes(String(c.domain).toLowerCase())).length; info.textContent = b.length ? `${hit} of ${b.length} domains are in this universe` : ""; };
     ta.addEventListener("input", upd); upd();
-    document.getElementById("booksave").addEventListener("click", () => { S.book = [...new Set(parse())]; store.set("book", S.book); bookLabel(); m.classList.remove("show"); recompute(); S.view = "list"; S.idx = Math.max(0, visible().length - 40); tickers(); renderRight(); renderWire(); paintGlobe(); });
+    document.getElementById("booksave").addEventListener("click", () => { S.book = [...new Set(parse())]; store.set("book", S.book); bookLabel(); m.classList.remove("show"); recompute(); S.view = "list"; S.idx = Math.max(0, visible().length - 1); tickers(); renderRight(); renderWire(); paintGlobe(); });
     document.getElementById("bookclear").addEventListener("click", () => { ta.value = ""; upd(); });
   });
   document.getElementById("modal").addEventListener("click", (e) => { if (e.target.id === "modal" || e.target.dataset.close != null) document.getElementById("modal").classList.remove("show"); });
